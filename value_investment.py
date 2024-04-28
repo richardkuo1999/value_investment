@@ -25,8 +25,11 @@ from bs4 import BeautifulSoup
 
 fw = None
 csvfile = None
-
 finmind_token = ''
+
+with open("token.txt", 'r') as f:
+  finmind_token = f.read()
+
 api = DataLoader()
 api.login_by_token(api_token=finmind_token)
 all_stock_info = api.taiwan_stock_info()

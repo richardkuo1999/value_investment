@@ -328,7 +328,7 @@ def calculator(
         csvdata[0], csvdata[1], csvdata[2] = (
             StockName,
             str(stock_id),
-            f'=STOCK(CONCAT(B{No+1},"{".two" if type=='tpex' else ".tw"}"))',
+            f'=STOCK(CONCAT(B{No+1},"{".two" if type=="tpex" else ".tw"}"))',
         )
 
         eps = get_EPS(api, stock_id, level, sel, EPS, fw)

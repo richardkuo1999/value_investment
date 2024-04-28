@@ -254,6 +254,8 @@ def crwal_estimate_eps(sn, level, offset, fw=None):
 
             row_len = len(soup.table.tr.get_text().split())
             res = []
+            if(data[0] != "預估值"):
+                continue
             for i in range(5):
                 res.append(data[i * row_len : (i + 1) * row_len])
                 Printf(res[-1], file=fw)

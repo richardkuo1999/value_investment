@@ -22,6 +22,7 @@ import plotly.graph_objects as go
 from enum import Enum
 from bs4 import BeautifulSoup
 
+from stock_selector.stock_select import getETFConstituent, getInstitutional_TOP50
 
 fw = None
 csvfile = None
@@ -554,73 +555,103 @@ def stock_select(etf_id, e_eps=None, csvwriter=None, Hot=None):
         time.sleep(5)
 
 
+def ResultOutput(title, StockList):
+    fw = open(f"results/{title}.txt", "w")
+    csvfile = open(f"results/{title}.csv", "w", newline="", encoding="utf-8")
+    csvwriter = csv.writer(csvfile, delimiter=",")
+    csvwriter.writerow(
+        [
+            "股票名稱",
+            "股票代號",
+            "昨日價格",
+            "估計EPS",
+            "歷史PE參考年數目",
+            "PE25%",
+            "PE25%價位",
+            "PE25%潛在漲幅",
+            "PE50%",
+            "PE50%價位",
+            "PE50%潛在漲幅",
+            "PE75%",
+            "PE75%價位",
+            "PE75%潛在漲幅",
+            "PE平均",
+            "PE平均價位",
+            "PE平均潛在漲幅",
+            "TL+3SD PE",
+            "TL+3SD價位",
+            "TL+3SD在漲幅",
+            "TL+2SD PE",
+            "TL+2SD價位",
+            "TL+2SD在漲幅",
+            "TL+SD PE",
+            "TL+SD價位",
+            "TL+SD潛在漲幅",
+            "TL PE",
+            "TL價位",
+            "TL潛在漲幅",
+            "TL-SD PE",
+            "TLL-SD價位",
+            "TLL-SD潛在漲幅",
+            "TL-2SD PE",
+            "TL-2SD價位",
+            "TL-2SD潛在漲幅",
+            "TL-3SD PE",
+            "T-3SD價位",
+            "TL-3SD潛在漲幅",
+        ]
+    )
+    return fw, csvwriter, csvfile
+
+
+sel = 1
+level = 4
+year = 4.5
+e_eps = None
+
 if __name__ == "__main__":
-    # print(all_stock_info.loc[all_stock_info['stock_id'] == '0050'].iloc[0])
-    sel = 1
-    level = 4
-    year = 4.5
-    e_eps = None
+    if os.path.exists("results"):
+        os.remove("results")
+    os.mkdir("results")
 
-    etf_slete = True
-    Hot = None
+    while True:
+        UserInput = input(
+            "1.查詢ETF成分股\n2. 查詢個股\n3.三大法人買賣超\n4. 退出\n輸入: "
+        )
+        StockLists = {}
 
-    if etf_slete:
-        # 上市50, 上櫃50, 上市100
-        etf_list = ["0050", "006201", "0051"]
-        for etf_id in etf_list:
-            fw = open(f"{etf_id}.txt", "w")
-            csvfile = open(f"{etf_id}.csv", "w", newline="", encoding="utf-8")
-            csvwriter = csv.writer(csvfile, delimiter=",")
-            csvwriter.writerow(
-                [
-                    "股票名稱",
-                    "股票代號",
-                    "昨日價格",
-                    "估計EPS",
-                    "歷史PE參考年數目",
-                    "PE25%",
-                    "PE25%價位",
-                    "PE25%潛在漲幅",
-                    "PE50%",
-                    "PE50%價位",
-                    "PE50%潛在漲幅",
-                    "PE75%",
-                    "PE75%價位",
-                    "PE75%潛在漲幅",
-                    "PE平均",
-                    "PE平均價位",
-                    "PE平均潛在漲幅",
-                    "TL+3SD PE",
-                    "TL+3SD價位",
-                    "TL+3SD在漲幅",
-                    "TL+2SD PE",
-                    "TL+2SD價位",
-                    "TL+2SD在漲幅",
-                    "TL+SD PE",
-                    "TL+SD價位",
-                    "TL+SD潛在漲幅",
-                    "TL PE",
-                    "TL價位",
-                    "TL潛在漲幅",
-                    "TL-SD PE",
-                    "TLL-SD價位",
-                    "TLL-SD潛在漲幅",
-                    "TL-2SD PE",
-                    "TL-2SD價位",
-                    "TL-2SD潛在漲幅",
-                    "TL-3SD PE",
-                    "T-3SD價位",
-                    "TL-3SD潛在漲幅",
-                ]
-            )
+        # 1. 查詢ETF成分股
+        if UserInput == "1":
+            UserInput = input("1.0050, 0051, 006201\n2. 自行輸入\n輸入: ")
+            ETFList = []
+            if UserInput == "1":
+                ETFList = ["0050", "0051", "006201"]
+            elif UserInput == "2":
+                ETFList = input("請用空格隔開: ").split(" ")
+            for ETF in ETFList:
+                StockLists[ETF] = getETFConstituent(ETF)
 
-            stock_select(etf_id, e_eps, csvwriter, Hot)
+        # 2. 查詢個股
+        elif UserInput == "2":
+            StockLists = {"User_Choice": input("請用空格隔開: ").split(" ")}
+
+        # 3.三大法人買賣超
+        elif UserInput == "4":
+            StockLists = {" Institutional_Investors": getInstitutional_TOP50()}
+
+        # 4. 退出
+        elif UserInput == "4":
+            break
+
+        else:
+            print("Enter Error!!")
+            continue
+        for title, StockList in StockLists.items():
+            print(title, StockList)
+            fw, cw, csvfile = ResultOutput(title)
+
+            # Get Data
+            calculator(StockList, year, sel, level, e_eps)
 
             fw.close()
             csvfile.close()
-
-    else:
-        s_list = [2603]
-        for sn in s_list:
-            Printf("=" * 100, file=fw)
-            calculator(sn, year, sel, level, e_eps)

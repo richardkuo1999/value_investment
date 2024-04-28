@@ -1,6 +1,7 @@
 import sys
 import csv
 import signal
+import shutil
 import datetime
 import tkinter as tk
 import numpy as np
@@ -484,67 +485,6 @@ def calculator(
 
 
 def stock_select(etf_id, e_eps=None, csvwriter=None, Hot=None):
-
-    url_template = "https://www.moneydj.com/ETF/X/Basic/Basic0007A.xdjhtm?etfid={}.TW"
-
-    # 外資買賣超、投信買賣超、公股銀行買賣超
-    buy_list = [
-        "https://histock.tw/stock/three.aspx?s=b",
-        "https://histock.tw/stock/three.aspx?s=c",
-        "https://histock.tw/stock/broker8.aspx",
-    ]
-    stock_list = []
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
-    }
-
-    url = url_template.format(etf_id)
-
-    result = requests.get(url, headers=headers)
-    result.encoding = "utf-8"
-    soup = BeautifulSoup(result.text, "html5lib")
-    data = soup.find_all("td", class_="col05")
-    for idx, name in enumerate(data):
-        stock_list.append(name.text)
-
-    if Hot:
-        for idx, link in enumerate(buy_list):
-            url = link
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
-            }
-            result = requests.get(url, headers=headers)
-            result.encoding = "utf-8"
-            soup = BeautifulSoup(result.text, "html5lib")
-            data = []
-            if idx == 2:
-                data = soup.find_all("span", class_="w100 name")
-            else:
-                data = soup.find_all("span", class_="w58 name")
-
-            for idx_data, name in enumerate(data):
-                txt = name.text
-                if idx == 2:
-                    txt = txt[1:]
-                stock_list.append(txt)
-
-    stock_list = list(set(stock_list))
-    stock_dict = {}
-    print(stock_list)
-    for sn in stock_list:
-        try:
-            stock_id = all_stock_info.loc[all_stock_info["stock_name"] == sn].iloc[0][
-                "stock_id"
-            ]
-            if len(stock_id) < 5:
-                stock_dict[sn] = stock_id
-        except:
-            pass
-
-    year = 5.5
-    sel = 1
-    level = 4
     for i, (sn, stock_id) in enumerate(stock_dict.items(), start=1):
         Check_api_request_limit()
         Printf("*" * 50, file=fw)
@@ -555,7 +495,7 @@ def stock_select(etf_id, e_eps=None, csvwriter=None, Hot=None):
         time.sleep(5)
 
 
-def ResultOutput(title, StockList):
+def ResultOutput(title):
     fw = open(f"results/{title}.txt", "w")
     csvfile = open(f"results/{title}.csv", "w", newline="", encoding="utf-8")
     csvwriter = csv.writer(csvfile, delimiter=",")
@@ -611,7 +551,7 @@ e_eps = None
 
 if __name__ == "__main__":
     if os.path.exists("results"):
-        os.remove("results")
+       shutil.rmtree("results")
     os.mkdir("results")
 
     while True:
@@ -628,16 +568,16 @@ if __name__ == "__main__":
                 ETFList = ["0050", "0051", "006201"]
             elif UserInput == "2":
                 ETFList = input("請用空格隔開: ").split(" ")
-            for ETF in ETFList:
-                StockLists[ETF] = getETFConstituent(ETF)
+            for ETF_ID in ETFList:
+                StockLists[ETF_ID] = getETFConstituent(all_stock_info, ETF_ID)
 
         # 2. 查詢個股
         elif UserInput == "2":
             StockLists = {"User_Choice": input("請用空格隔開: ").split(" ")}
 
         # 3.三大法人買賣超
-        elif UserInput == "4":
-            StockLists = {" Institutional_Investors": getInstitutional_TOP50()}
+        elif UserInput == "3":
+            StockLists = {" Institutional_Investors": getInstitutional_TOP50(all_stock_info)}
 
         # 4. 退出
         elif UserInput == "4":
@@ -651,7 +591,7 @@ if __name__ == "__main__":
             fw, cw, csvfile = ResultOutput(title)
 
             # Get Data
-            calculator(StockList, year, sel, level, e_eps)
+            # calculator(StockList, year, sel, level, e_eps)
 
             fw.close()
             csvfile.close()

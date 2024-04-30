@@ -232,15 +232,21 @@ parameter -> level
 
 
 def crwal_estimate_eps(sn, level, offset, fw=None):
-
+    EPS = None
     search_str = "factset eps cnyes {} tw".format(sn)
     # print(search_str)
+    url_list = {}
     for j in search(search_str, stop=5, pause=2.0):
         url = j
         # print(url)
         if "cnyes" not in url:
             continue
+        url_list[int(url.split('/')[-1])] = url
 
+    url_list = [url_list[key] for key in sorted(url_list, key=lambda x: url_list[x], reverse=True)]
+    # print(url_list)
+
+    for url in url_list:
         result = requests.get(url)
         soup = BeautifulSoup(result.text, "html.parser")
 
@@ -271,12 +277,12 @@ def crwal_estimate_eps(sn, level, offset, fw=None):
             nums = targ_eps[int(offset)]
             numsm1 = targ_eps[int(offset) - 1]
 
-            return (float(nums.split("(")[0]) + float(numsm1.split("(")[0])) / 2
-            # return ( float(nums.split("(")[0]) )
+            EPS = (float(nums.split("(")[0]) + float(numsm1.split("(")[0])) / 2
+            break
 
         except:
             continue
-    return None
+    return EPS
 
 
 def get_EPS(api, stock_id, level, sel, EPS=None, fw=None):
@@ -407,3 +413,11 @@ def calculator(
             cw.writerow(csvdata)
 
         time.sleep(5)
+
+
+
+
+if __name__ == "__main__":
+    for sn in ([2330]*10):
+        eps = crwal_estimate_eps(sn, 4, 1, fw=None)
+        print(eps)

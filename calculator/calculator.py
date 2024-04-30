@@ -4,10 +4,9 @@ import requests
 import statistics
 import numpy as np
 from bs4 import BeautifulSoup
-from googlesearch import search
 from sklearn import linear_model
 
-from utils.utils import plotly_figure, Printf, Msg
+from utils.utils import plotly_figure, Printf, Msg, get_google_search_results
 
 
 def Check_api_request_limit(finmind_token):
@@ -233,18 +232,24 @@ parameter -> level
 
 def crwal_estimate_eps(sn, level, offset, fw=None):
     EPS = None
+
+    # Get the cnyes news
     search_str = "factset eps cnyes {} tw".format(sn)
     # print(search_str)
+    search_results = get_google_search_results(search_str, 10)
+    # print(search_results)
     url_list = {}
-    for j in search(search_str, stop=5, pause=2.0):
-        url = j
-        # print(url)
-        if "cnyes" not in url:
-            continue
-        url_list[int(url.split('/')[-1])] = url
+    for url in search_results:
+        if "cnyes.com" in url:
+            # print(url)
+            try:
+                url_list[int(url.split('/')[-1])] = url
+            except:
+                continue
 
     url_list = [url_list[key] for key in sorted(url_list, key=lambda x: url_list[x], reverse=True)]
     # print(url_list)
+
 
     for url in url_list:
         result = requests.get(url)
@@ -413,11 +418,3 @@ def calculator(
             cw.writerow(csvdata)
 
         time.sleep(5)
-
-
-
-
-if __name__ == "__main__":
-    for sn in ([2330]*10):
-        eps = crwal_estimate_eps(sn, 4, 1, fw=None)
-        print(eps)

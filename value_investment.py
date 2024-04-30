@@ -1,27 +1,8 @@
-import sys
-import csv
-import signal
 import shutil
-import datetime
-import tkinter as tk
-import numpy as np
-import statistics
 from termcolor import *
 from FinMind.data import DataLoader
 import os
-import time
-import requests
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import urllib.request
-import json
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates  # 處理日期
-import pandas as pd
-from sklearn import linear_model
-import plotly.graph_objects as go
-from enum import Enum
-from bs4 import BeautifulSoup
+
 
 from stock_selector.stock_select import getETFConstituent, getInstitutional_TOP50
 from calculator.calculator import calculator

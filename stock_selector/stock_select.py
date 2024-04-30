@@ -1,10 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-
-
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
-}
+from utils.utils import headers
         
 def getETFConstituent(all_stock_info, ETF_ID):
     url_template = "https://www.moneydj.com/ETF/X/Basic/Basic0007A.xdjhtm?etfid={}.TW"

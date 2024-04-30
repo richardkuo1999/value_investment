@@ -1,7 +1,12 @@
 import csv
+import requests
 from enum import Enum
+from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
+}
 
 class Future(Enum):
     NOW = 0
@@ -108,3 +113,17 @@ def ResultOutput(title):
         ]
     )
     return fw, csvwriter, csvfile
+
+def get_google_search_results(query, num_results=10):
+    results = []
+    url = f"https://www.google.com/search?q={query}&num={num_results}"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, "html.parser")
+        search_results = soup.find_all("div", class_="g")
+        for result in search_results:
+            link = result.find("a")["href"]
+            results.append(link)
+    if response.status_code == 429:
+        raise("429 Too Many Requests")
+    return results

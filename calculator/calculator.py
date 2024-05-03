@@ -232,6 +232,7 @@ parameter -> level
 
 def crwal_estimate_eps(sn, level, offset, fw=None):
     EPS = None
+    estprice = -1
 
     # Get the cnyes news
     search_str = "factset eps cnyes {} tw".format(sn)
@@ -256,10 +257,15 @@ def crwal_estimate_eps(sn, level, offset, fw=None):
         soup = BeautifulSoup(result.text, "html.parser")
 
         try:
-            if str(
-                soup.find(attrs={"data-ga-click-item": True}).text.split("-")[0]
-            ) != str(sn):
+            webtitle = soup.find(class_="b1shwpxv").next_sibling.text
+            
+            if webtitle.split('(')[1].split('-')[0] != str(sn):
                 continue
+
+            try:
+                estprice = webtitle.split('預估目標價為')[1].split('元')[0]
+            except:
+                estprice = -1
 
             data = soup.table.get_text().split()
 
@@ -287,12 +293,11 @@ def crwal_estimate_eps(sn, level, offset, fw=None):
 
         except:
             continue
-    return EPS
+    return float(estprice), EPS
 
 
 def get_EPS(api, stock_id, level, sel, EPS=None, fw=None):
-
-    eps = crwal_estimate_eps(stock_id, level, sel, fw)
+    estprice, eps = crwal_estimate_eps(stock_id, level, sel, fw)
 
     if type(eps) != int and type(eps) != float:
         Printf("[ WRRNING ] 無法取得 Fectset EPS 評估報告，使用近四季EPS總和.", file=fw)
@@ -309,7 +314,7 @@ def get_EPS(api, stock_id, level, sel, EPS=None, fw=None):
             lst_eps = [ll[3] for ll in lst]
             eps = sum(lst_eps[-4:])
 
-    return eps
+    return estprice, eps
 
 
 def calculator(
@@ -332,7 +337,7 @@ def calculator(
         Printf(split_str, file=fw)
         print(f'{No}/{len(StockList)}')
         
-        csvdata = [None] * 38
+        csvdata = [None] * 40
         StockName = all_stock_info.loc[
             all_stock_info["stock_id"] == stock_id
         ].iloc[0]["stock_name"]
@@ -344,7 +349,7 @@ def calculator(
             f'=STOCK(CONCAT(B{No+1},"{".two" if type=="tpex" else ".tw"}"))',
         )
 
-        eps = get_EPS(api, stock_id, level, sel, EPS, fw)
+        estprice, eps = get_EPS(api, stock_id, level, sel, EPS, fw)
 
         Printf(split_str, file=fw)
         Printf(
@@ -353,7 +358,9 @@ def calculator(
             ),
             file=fw,
         )
-        csvdata[3], csvdata[4] = str(eps), str(year)
+        csvdata[38], csvdata[3], csvdata[4] =str(estprice), str(eps), str(year)
+        csvdata[39] = f"=({estprice} - C{No+1}) / C{No+1} * 100" if estprice else "None"
+        
         Printf(split_str, file=fw)
         # Usage: stock_number, years
 
@@ -361,6 +368,11 @@ def calculator(
         price_now = mean_reversion(api, stock_id, year, fw)
         Printf("\n現在股價為:\t{:.2f}".format(price_now), file=fw)
         Printf("未來本益比為:\t{:.2f}".format(price_now / eps), file=fw)
+
+        if estprice:
+            Printf(split_str, file=fw)
+            Printf("市場預估狀況\n", file=fw)
+            Printf(f"市場預估價:\t{csvdata[38]}\t\t推算潛在漲幅為:\t{(estprice-price_now)/price_now*100}%", file=fw)
 
         PE = None
         # Usage:   'api', stock_number, eps, year_number
@@ -370,6 +382,7 @@ def calculator(
             pe_rate = 25
 
             # printf("目前本益比為:\t{}".format(PE.current_pe))
+
             Printf(split_str, file=fw)
             Printf("計算本益比四分位數與平均本益比......\n", file=fw)
             uniformat = "本益比{}% 為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"

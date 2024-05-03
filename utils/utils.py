@@ -110,6 +110,8 @@ def ResultOutput(title):
             "TL-3SD PE",
             "T-3SD價位",
             "TL-3SD潛在漲幅",
+            "市場預估價",
+            "市場預估價潛在漲幅"
         ]
     )
     return fw, csvwriter, csvfile

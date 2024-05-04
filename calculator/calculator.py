@@ -219,17 +219,6 @@ def per_std(api, sn, eps, years, line_num=5, fig=False):
     return (df, comp_list)
 
 
-"""
-parameter -> sel
-# 0: 今年
-# 1: 明年
-# 2: 後年
-
-parameter -> level
-# 1: high, 2: low, 3: average, 4: medium
-"""
-
-
 def crwal_estimate_eps(sn, level, offset, fw=None):
     EPS = None
     estprice = -1

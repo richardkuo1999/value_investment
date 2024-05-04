@@ -14,7 +14,18 @@ finmind_token = ""
 with open("token.txt", "r") as f:
     finmind_token = f.read()
 
+"""
+parameter -> sel
+Description: EPS year
+# N: This year
+# 0: N + 0
+# 1: N + 1
+# 2: N + 2
 
+parameter -> level
+Description: select forward eps value
+# 1: high, 2: low, 3: average, 4: medium
+"""
 sel = 1
 level = 4
 year = 4.5
@@ -26,10 +37,12 @@ if __name__ == "__main__":
         print("Put the token.txt")
         exit()
 
+    # Load finmind api
     api = DataLoader()
     api.login_by_token(api_token=finmind_token)
     all_stock_info = api.taiwan_stock_info()
-    
+
+    # recreate folder
     if os.path.exists("results"):
         shutil.rmtree("results")
     os.mkdir("results")

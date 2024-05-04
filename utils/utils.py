@@ -32,7 +32,7 @@ def msg_show(level, msg):
     print(updated_msg)
 
 
-def Printf(msg, file=None):
+def write2txt(msg, file=None):
     if file:
         print(msg, file=file)
     print(msg)

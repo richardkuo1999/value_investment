@@ -6,7 +6,7 @@ import numpy as np
 from bs4 import BeautifulSoup
 from sklearn import linear_model
 
-from utils.utils import plotly_figure, Printf, Msg, get_google_search_results
+from utils.utils import plotly_figure, write2txt, Msg, get_google_search_results
 
 
 def Check_api_request_limit(finmind_token):
@@ -169,7 +169,7 @@ def mean_reversion(api, sn, years, fw=None, line_num=5):
         ]
     )
     for l in text_list:
-        Printf(l, file=fw)
+        write2txt(l, file=fw)
     # plotly_figure(sn, df, line_num, "close")
     return price_now
 
@@ -264,7 +264,7 @@ def crwal_estimate_eps(sn, level, offset, fw=None):
                 continue
             for i in range(5):
                 res.append(data[i * row_len : (i + 1) * row_len])
-                Printf(res[-1], file=fw)
+                write2txt(res[-1], file=fw)
 
             eps_title = res[0]
             year_str = str(datetime.date.today().year + offset)
@@ -273,7 +273,7 @@ def crwal_estimate_eps(sn, level, offset, fw=None):
                     offset = idx
                     break
             targ_eps = res[level]
-            Printf(targ_eps, file=fw)
+            write2txt(targ_eps, file=fw)
             nums = targ_eps[int(offset)]
             numsm1 = targ_eps[int(offset) - 1]
 
@@ -289,7 +289,7 @@ def get_EPS(api, stock_id, level, sel, EPS=None, fw=None):
     estprice, eps = crwal_estimate_eps(stock_id, level, sel, fw)
 
     if type(eps) != int and type(eps) != float:
-        Printf("[ WRRNING ] 無法取得 Fectset EPS 評估報告，使用近四季EPS總和.", file=fw)
+        write2txt("[ WRRNING ] 無法取得 Fectset EPS 評估報告，使用近四季EPS總和.", file=fw)
         if EPS is not None:
             eps = EPS
         else:
@@ -323,14 +323,14 @@ def calculator(
     for i, stock_id in enumerate(StockList, start=1):
         No = i
         Check_api_request_limit(finmind_token)
-        Printf(split_str, file=fw)
+        write2txt(split_str, file=fw)
         print(f'{No}/{len(StockList)}')
         
         csvdata = [None] * 40
         StockName = all_stock_info.loc[
             all_stock_info["stock_id"] == stock_id
         ].iloc[0]["stock_name"]
-        Printf(f"股票名稱: {StockName}", file=fw)
+        write2txt(f"股票名稱: {StockName}", file=fw)
         type = all_stock_info.loc[all_stock_info["stock_id"] == stock_id].iloc[0]["type"]
         csvdata[0], csvdata[1], csvdata[2] = (
             StockName,
@@ -340,8 +340,8 @@ def calculator(
 
         estprice, eps = get_EPS(api, stock_id, level, sel, EPS, fw)
 
-        Printf(split_str, file=fw)
-        Printf(
+        write2txt(split_str, file=fw)
+        write2txt(
             "股票代號:\t{},\t\t估計EPS:\t{},\t\t歷史本益比參考年數:\t{}".format(
                 stock_id, eps, year
             ),
@@ -350,18 +350,18 @@ def calculator(
         csvdata[38], csvdata[3], csvdata[4] =str(estprice), str(eps), str(year)
         csvdata[39] = f"=({estprice} - C{No+1}) / C{No+1} * 100" if estprice else "None"
         
-        Printf(split_str, file=fw)
+        write2txt(split_str, file=fw)
         # Usage: stock_number, years
 
-        Printf("計算股價均值回歸......\n", file=fw)
+        write2txt("計算股價均值回歸......\n", file=fw)
         price_now = mean_reversion(api, stock_id, year, fw)
-        Printf("\n現在股價為:\t{:.2f}".format(price_now), file=fw)
-        Printf("未來本益比為:\t{:.2f}".format(price_now / eps), file=fw)
+        write2txt("\n現在股價為:\t{:.2f}".format(price_now), file=fw)
+        write2txt("未來本益比為:\t{:.2f}".format(price_now / eps), file=fw)
 
         if estprice:
-            Printf(split_str, file=fw)
-            Printf("市場預估狀況\n", file=fw)
-            Printf(f"市場預估價:\t{csvdata[38]}\t\t推算潛在漲幅為:\t{(estprice-price_now)/price_now*100}%", file=fw)
+            write2txt(split_str, file=fw)
+            write2txt("市場預估狀況\n", file=fw)
+            write2txt(f"市場預估價:\t{csvdata[38]}\t\t推算潛在漲幅為:\t{(estprice-price_now)/price_now*100}%", file=fw)
 
         PE = None
         # Usage:   'api', stock_number, eps, year_number
@@ -370,10 +370,10 @@ def calculator(
             pe_list = PER.get_PER()
             pe_rate = 25
 
-            # printf("目前本益比為:\t{}".format(PE.current_pe))
+            # write2txt("目前本益比為:\t{}".format(PE.current_pe))
 
-            Printf(split_str, file=fw)
-            Printf("計算本益比四分位數與平均本益比......\n", file=fw)
+            write2txt(split_str, file=fw)
+            write2txt("計算本益比四分位數與平均本益比......\n", file=fw)
             uniformat = "本益比{}% 為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
             for i in range(3):
                 PE, Price, Rate = (
@@ -381,7 +381,7 @@ def calculator(
                     eps * pe_list[i],
                     (eps * pe_list[i] - price_now) / price_now * 100,
                 )
-                Printf(uniformat.format(pe_rate * (i + 1), PE, Price, Rate), file=fw)
+                write2txt(uniformat.format(pe_rate * (i + 1), PE, Price, Rate), file=fw)
                 csvdata[5 + i * 3], csvdata[6 + i * 3], csvdata[7 + i * 3] = (
                     str(PE),
                     str(Price),
@@ -389,7 +389,7 @@ def calculator(
                 )
             uniformat = "本益比平均為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
             PE, Price = pe_list[-1], eps * pe_list[-1]
-            Printf(
+            write2txt(
                 uniformat.format(PE, Price, (Price - price_now) / price_now * 100),
                 file=fw,
             )
@@ -399,13 +399,13 @@ def calculator(
                 f"=({Price} - C{No+1}) / C{No+1} * 100",
             )
         # Usage: stock_number, eps, year
-        Printf(split_str, file=fw)
+        write2txt(split_str, file=fw)
         uniformat = "{:<20} {:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
-        Printf("計算本益比標準差......\n", file=fw)
+        write2txt("計算本益比標準差......\n", file=fw)
         (df, comp_list) = per_std(api, stock_id, eps, year, fig=False)
         for i, title in enumerate(comp_list):
             PE, Price = df[title][-1], eps * df[title][-1]
-            Printf(
+            write2txt(
                 uniformat.format(
                     title, PE, Price, (Price - price_now) / price_now * 100
                 ),

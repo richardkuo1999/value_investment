@@ -342,7 +342,7 @@ def calculator(
 
         Printf(split_str, file=fw)
         Printf(
-            "股票代號:\t{},\t\t估計EPS:\t{},\t\t歷史本益比參考年數:\t{}".format(
+            "股票代號:\t{},\t\t估計EPS:\t{:.2f},\t\t歷史本益比參考年數:\t{}".format(
                 stock_id, eps, year
             ),
             file=fw,
@@ -361,7 +361,8 @@ def calculator(
         if estprice:
             Printf(split_str, file=fw)
             Printf("市場預估狀況\n", file=fw)
-            Printf(f"市場預估價:\t{csvdata[38]}\t\t推算潛在漲幅為:\t{(estprice-price_now)/price_now*100}%", file=fw)
+            # Printf(f"市場預估價:\t{csvdata[38]}\t\t推算潛在漲幅為:\t{(estprice-price_now)/price_now*100}%", file=fw)
+            Printf("市場預估價:\t{}\t\t推算潛在漲幅為:\t{:.2f}%".format(csvdata[38], (estprice-price_now)/price_now*100), file=fw)
 
         PE = None
         # Usage:   'api', stock_number, eps, year_number

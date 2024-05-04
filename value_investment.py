@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     while True:
         UserInput = input(
-            "1.查詢ETF成分股\n2. 查詢個股\n3.三大法人買賣超\n4. 退出\n輸入: "
+            "1. 查詢ETF成分股 \n2. 查詢個股 \n3. 三大法人買賣超 \n4. 退出 \n輸入: "
         )
         StockLists = {}
 

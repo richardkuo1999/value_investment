@@ -67,7 +67,7 @@ if __name__ == "__main__":
     os.mkdir("results")
 
     # Read the caculate Parameter
-    sel, level, year, e_eps = Parameter_read("Parameter.txt")
+    parameter = Parameter_read("Parameter.txt")
 
     while True:
         os.system("cls")
@@ -98,7 +98,7 @@ if __name__ == "__main__":
             }
         # 4. 參數更改
         elif UserInput == "4":
-            sel, level, year, e_eps = ModifideParameter()
+            parameter = ModifideParameter()
 
         # 5. 退出
         elif UserInput == "5":
@@ -117,10 +117,7 @@ if __name__ == "__main__":
                 api,
                 all_stock_info,
                 StockList,
-                year,
-                sel,
-                level,
-                e_eps,
+                parameter,
                 fw,
                 cw,
             )

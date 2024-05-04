@@ -142,10 +142,13 @@ def txt_read(file):
 def Parameter_read(file):
     txtdata = txt_read(file).split("\n")
     try:
-        sel = float(txtdata[0])
-        level = float(txtdata[1])
+        sel = int(txtdata[0])
+        level = int(txtdata[1])
         year = float(txtdata[2])
         e_eps = float(txtdata[3]) if txtdata[3].lower() != "none" else None
     except:
         sel, level, year, e_eps = 1, 4, 4.5, None
     return [sel, level, year, e_eps]
+
+def get_stock_info(all_stock_info, stock_id, tag1, tag2):
+    return all_stock_info.loc[all_stock_info[tag1] == stock_id].iloc[0][tag2]

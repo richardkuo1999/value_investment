@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from utils.utils import headers
+from utils.utils import headers, get_stock_info
         
 def getETFConstituent(all_stock_info, ETF_ID):
     url_template = "https://www.moneydj.com/ETF/X/Basic/Basic0007A.xdjhtm?etfid={}.TW"
@@ -17,11 +17,9 @@ def getETFConstituent(all_stock_info, ETF_ID):
         getList.append(name.text)
         
     stock_list = []
-    for sn in getList:
+    for stock_name in getList:
         try:
-            stock_id = all_stock_info.loc[all_stock_info["stock_name"] == sn].iloc[0][
-                "stock_id"
-            ]
+            stock_id = get_stock_info(all_stock_info, stock_name, "stock_name", "stock_id")
             if stock_id[0] != '0':
                 stock_list.append(stock_id)
         except:
@@ -59,11 +57,9 @@ def getInstitutional_TOP50(all_stock_info):
         
         getList = list(set(getList))
         stock_list = []
-        for sn in getList:
+        for stock_name in getList:
             try:
-                stock_id = all_stock_info.loc[all_stock_info["stock_name"] == sn].iloc[0][
-                    "stock_id"
-                ]
+                stock_id = get_stock_info(all_stock_info, stock_name, "stock_name", "stock_id")
                 if stock_id[0] != '0':
                     stock_list.append(stock_id)
             except:

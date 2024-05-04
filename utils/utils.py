@@ -8,6 +8,7 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
 }
 
+
 class Future(Enum):
     NOW = 0
     NEXT = 1
@@ -111,10 +112,11 @@ def ResultOutput(title):
             "T-3SD價位",
             "TL-3SD潛在漲幅",
             "市場預估價",
-            "市場預估價潛在漲幅"
+            "市場預估價潛在漲幅",
         ]
     )
     return fw, csvwriter, csvfile
+
 
 def get_google_search_results(query, num_results=10):
     results = []
@@ -127,5 +129,11 @@ def get_google_search_results(query, num_results=10):
             link = result.find("a")["href"]
             results.append(link)
     if response.status_code == 429:
-        raise("429 Too Many Requests")
+        raise ("429 Too Many Requests")
     return results
+
+
+def txt_read(file):
+    with open(file, "r") as f:
+        txtdata = f.read()
+    return txtdata

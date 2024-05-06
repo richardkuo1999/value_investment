@@ -24,6 +24,7 @@ def Check_api_request_limit(finmind_token):
     if (api_request_limit - user_count) <= 10:
         print(f"user_count/api_request_limit: {user_count}/{api_request_limit}")
         time.sleep(600)
+        Check_api_request_limit(finmind_token)
 
 
 class Stock_Predictor:

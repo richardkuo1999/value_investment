@@ -1,8 +1,8 @@
 import time
-import datetime
 import requests
 import statistics
 import numpy as np
+import datetime
 from bs4 import BeautifulSoup
 from sklearn import linear_model
 
@@ -215,19 +215,27 @@ class Stock_Predictor:
         # print(search_str)
         search_results = get_google_search_results(search_str, 10)
         # print(search_results)
-        url_list = {}
+        url_list = []
         for url in search_results:
             if "cnyes.com" in url:
                 # print(url)
-                try:
-                    url_list[int(url.split("/")[-1])] = url
-                except:
-                    continue
+                url_list.append(url)
 
-        url_list = [
-            url_list[key]
-            for key in sorted(url_list, key=lambda x: url_list[x], reverse=True)
-        ]
+        time_dict = {}
+        for url in url_list:
+            try:
+                result = requests.get(url)
+                soup = BeautifulSoup(result.text, "html.parser")
+                webtime = soup.find(class_="a1wfawlv").contents[-1]
+                webtime = datetime.datetime.strptime(webtime, "%Y-%m-%d %H:%M")
+                time_dict[webtime] = url
+                # print(webtime, url)
+            except:
+                continue
+
+        sorted_times = sorted(time_dict.keys(), reverse=True)
+        # print(sorted_times)
+        url_list = [time_dict[time] for time in sorted_times]
         # print(url_list)
 
         for url in url_list:

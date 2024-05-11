@@ -338,7 +338,7 @@ def calculator(
     split_str = "=" * 100
     for i, stock_id in enumerate(StockList, start=1):
         No = i
-        csvdata = [None] * 40
+        csvdata = [None] * 41
         Check_api_request_limit(finmind_token)
 
         # 股票基本資訊
@@ -381,6 +381,7 @@ def calculator(
             write2txt(l, file=fw)
         write2txt("\n現在股價為:\t{:.2f}".format(price_now), file=fw)
         write2txt("未來本益比為:\t{:.2f}".format(price_now / eps), file=fw)
+        csvdata[40] = f"=C{No+1} / {eps}"
         # =======================================================================
 
         # 市場預估價

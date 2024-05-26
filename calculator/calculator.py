@@ -217,6 +217,7 @@ class Stock_Predictor:
         # print(search_results)
         url_list = []
         for url in search_results:
+            url=url.replace("print", "id")
             if "cnyes.com" in url:
                 # print(url)
                 url_list.append(url)
@@ -226,7 +227,7 @@ class Stock_Predictor:
             try:
                 result = requests.get(url)
                 soup = BeautifulSoup(result.text, "html.parser")
-                webtime = soup.find(class_="a1wfawlv").contents[-1]
+                webtime = soup.find(class_="alr4vq1").contents[-1]
                 webtime = datetime.datetime.strptime(webtime, "%Y-%m-%d %H:%M")
                 time_dict[webtime] = url
                 # print(webtime, url)
@@ -243,7 +244,7 @@ class Stock_Predictor:
             soup = BeautifulSoup(result.text, "html.parser")
 
             try:
-                webtitle = soup.find(class_="b1shwpxv").next_sibling.text
+                webtitle = soup.find(id="article-container").text
 
                 if webtitle.split("(")[1].split("-")[0] != str(sn):
                     continue

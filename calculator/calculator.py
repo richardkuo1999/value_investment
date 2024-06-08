@@ -217,7 +217,7 @@ class Stock_Predictor:
         # print(search_results)
         url_list = []
         for url in search_results:
-            url=url.replace("print", "id")
+            url = url.replace("print", "id")
             if "cnyes.com" in url:
                 # print(url)
                 url_list.append(url)
@@ -252,16 +252,28 @@ class Stock_Predictor:
                 try:
                     estprice = webtitle.split("預估目標價為")[1].split("元")[0]
                 except:
-                    estprice = -1
+                    pass
 
-                data = soup.table.get_text().split()
-
-                row_len = len(soup.table.tr.get_text().split())
                 res = []
-                if data[0] != "預估值":
+
+                # 提取表格的行
+                rows = soup.table.find_all("tr")
+
+                # 提取表頭
+                headers = [
+                    header.get_text(strip=True) for header in rows[0].find_all("td")
+                ]
+                res.append(headers)
+
+                # print(headers[0])
+                if headers[0] != "預估值":
                     continue
-                for i in range(5):
-                    res.append(data[i * row_len : (i + 1) * row_len])
+
+                # 提取每行數據並加入結果列表
+                for row in rows[1:]:
+                    cells = row.find_all("td")
+                    row_data = [cell.get_text(strip=True) for cell in cells]
+                    res.append(row_data)
                     write2txt(res[-1], file=fw)
 
                 eps_title = res[0]

@@ -22,30 +22,30 @@ Description: EPS year
 
 parameter -> level
 Description: select forward eps value
-# 1: high, 2: low, 3: average, 4: medium
+# 0: high, 1: low, 2: average, 3: medium
 """
 
 
 def ModifideParameter():
     msgList = [
         "EPS year:  (default is 1)\nN: This year\n\t0: N + 0\n\t1: N + 1\n\t2: N + 2",
-        "select forward eps value:  (default is 4)\n\t1: high\n\t2: low\n\t3: average\n\t4: medium",
+        "select forward eps value:  (default is 3)\n\t0: high\n\t1: low\n\t2: average\n\t3: medium",
         "Reference how many years: (default is 4.5)",
         "e_eps (default is None):",
     ]
-    default = [1, 4, 4.5, None]
+    default = [1, 3, 4.5, None]
 
-    Parameter = Parameter_read("Parameter.txt")
+    Parameter = []
     with open("Parameter.txt", "w") as pf:
         for i in range(4):
             os.system("cls")
             print(msgList[i])
             UserInput = input("Input: ")
             try:
-                Parameter[i] = float(UserInput)
+                Parameter.append(float(UserInput))
             except:
                 print(f"Use default Value: {default[i]}")
-                Parameter[i] = default[i]
+                Parameter.append(default[i])
             write2txt(Parameter[i], pf)
     return Parameter
 
@@ -67,7 +67,10 @@ if __name__ == "__main__":
     os.mkdir("results")
 
     # Read the caculate Parameter
-    parameter = Parameter_read("Parameter.txt")
+    if os.path.exists("Parameter.txt"):
+        parameter = Parameter_read("Parameter.txt")
+    else:
+        parameter = ModifideParameter()
 
     while True:
         os.system("cls")

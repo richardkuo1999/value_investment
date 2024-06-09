@@ -4,7 +4,7 @@ import statistics
 import numpy as np
 import datetime
 from bs4 import BeautifulSoup
-from sklearn import linear_model
+from sklearn.linear_model import LinearRegression
 
 from utils.utils import (
     plotly_figure,
@@ -44,9 +44,7 @@ class Stock_Predictor:
 
     def get_warning(self):
         bar = "=" * (len(self.warn_str) // 4)
-        self.str_lst.append(bar)
-        self.str_lst.append("={}=".format(self.warn_str))
-        self.str_lst.append(bar)
+        self.str_lst.extend([bar, f"={self.warn_str}=", bar])
 
     def get_PER(self):
         lst_per = []
@@ -54,12 +52,8 @@ class Stock_Predictor:
             stock_id=str(self.stock_number), start_date=self.start_date
         )
         data = df["PER"]
-        lst_per = [
-            np.percentile(data, (25)),
-            np.percentile(data, (50)),
-            np.percentile(data, (75)),
-            round(statistics.mean(data), 2),
-        ]
+        lst_per = [np.percentile(data, p) for p in (25, 50, 75)]
+        lst_per.append(round(statistics.mean(data), 2))
         self.current_pe = data.values.tolist()[-1]
         return np.array(lst_per)
 
@@ -67,52 +61,42 @@ class Stock_Predictor:
         fw = self.fw
 
         prob_data = [0.001, 0.021, 0.136, 0.341, 0.341, 0.136, 0.021, 0.001]
-        reg = linear_model.LinearRegression()
-        df = {}
+        reg = LinearRegression()
         stock_data = self.api.taiwan_stock_daily(
             stock_id=self.stock_number, start_date=self.start_date
         )
         data = stock_data["close"].values.tolist()
         dates = stock_data["date"].values.tolist()
 
-        for e1, e2 in zip(data, dates):
-            if e1 == 0:
-                data.remove(e1)
-                dates.remove(e2)
-
-        idx = np.array([i for i in range(1, len(data) + 1)])
+        idx = np.arange(1, len(data) + 1)
         reg.fit(idx.reshape(-1, 1), data)
 
         # print(reg.coef_[0]) # 斜率
         # print(reg.intercept_) # 截距
-        df["date"] = np.array(dates)
-        df["TL"] = reg.intercept_ + idx * reg.coef_[0]
+        df = {"date": np.array(dates), "TL": reg.intercept_ + idx * reg.coef_[0]}
         df["y-TL"] = data - df["TL"]
         df["SD"] = df["y-TL"].std()
-        df["TL-3SD"] = df["TL"] - 3 * df["SD"]
-        df["TL-2SD"] = df["TL"] - 2 * df["SD"]
-        df["TL-SD"] = df["TL"] - df["SD"]
+        for i in range(1, 4):
+            df[f"TL-{i}SD"] = df["TL"] - i * df["SD"]
+            df[f"TL+{i}SD"] = df["TL"] + i * df["SD"]
 
-        df["TL+3SD"] = df["TL"] + 3 * df["SD"]
-        df["TL+2SD"] = df["TL"] + 2 * df["SD"]
-        df["TL+SD"] = df["TL"] + df["SD"]
         df["close"] = np.array(data)
         price_now = df["close"][-1]
-        up_prob = 0
-        hold_prob = 0
-        stock_range = []
-        text_list = []
-        down_prob = sum(prob_data)
-        comp_list = ["TL+3SD", "TL+2SD", "TL+SD", "TL", "TL-SD", "TL-2SD", "TL-3SD"]
+        up_prob, hold_prob, down_prob = 0, 0, sum(prob_data)
+        comp_list = (
+            [f"TL+{i}SD" for i in range(3, 0, -1)]
+            + ["TL"]
+            + [f"TL-{i}SD" for i in range(1, 4)]
+        )
         for idx, item in enumerate(comp_list):
-            comp_data = df[item][-1]
-            if price_now < comp_data:
+            if price_now < df[item][-1]:
                 up_prob += prob_data[idx]
                 down_prob -= prob_data[idx]
             else:
                 hold_prob += prob_data[idx]
                 down_prob -= prob_data[idx]
                 break
+
         TL = df["TL"][-1]
         expect_val_bull_1 = up_prob * (TL - price_now) - down_prob * price_now
         expect_val_bull_2 = up_prob * (TL - price_now) - down_prob * (
@@ -121,16 +105,13 @@ class Stock_Predictor:
         expect_val_bear_1 = down_prob * (price_now - TL) - up_prob * (
             df["TL+3SD"][-1] - price_now
         )
-        text_list.append(
+
+        text_list = [
             [
                 Msg.WARNING,
                 "均值回歸適合使用在穩定成長的股票上，如大盤or台積電等，高速成長及景氣循環股不適用，請小心服用。",
-            ]
-        )
-        text_list.append(
-            [Msg.WARNING, "偏離越多標準差越遠代表趨勢越強，請勿直接進場。"]
-        )
-        text_list.append(
+            ],
+            [Msg.WARNING, "偏離越多標準差越遠代表趨勢越強，請勿直接進場。"],
             [
                 Msg.INFO,
                 "{} 往上的機率為: {}%, 維持在這個區間的機率為: {}%, 往下的機率為: {}%".format(
@@ -139,49 +120,39 @@ class Stock_Predictor:
                     round(hold_prob * 100, 2),
                     round(down_prob * 100, 2),
                 ),
-            ]
-        )
-        text_list.append(
-            [Msg.INFO, "目前股價: {}, TL價: {}".format(price_now, round(TL, 2))]
-        )
-
-        text_list.append([Msg.INFO, "做多評估："])
-        text_list.append(
+            ],
+            [Msg.INFO, "目前股價: {}, TL價: {}".format(price_now, round(TL, 2))],
+            [Msg.INFO, "做多評估："],
             [
                 Msg.INFO,
                 "期望值為: {}, 期望報酬率為: {}% (保守計算: 上檔TL，下檔歸零)".format(
                     round(expect_val_bull_1, 2),
                     round(expect_val_bull_1 / price_now * 100, 2),
                 ),
-            ]
-        )
-        text_list.append(
+            ],
             [
                 Msg.INFO,
                 "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔TL，下檔-3SD)".format(
                     round(expect_val_bull_2, 2),
                     round(expect_val_bull_2 / price_now * 100, 2),
                 ),
-            ]
-        )
-
-        text_list.append([Msg.INFO, "做空評估: "])
-        text_list.append(
+            ],
+            [Msg.INFO, "做空評估: "],
             [
                 Msg.INFO,
                 "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔+3SD，下檔TL)".format(
                     round(expect_val_bear_1, 2),
                     round(expect_val_bear_1 / price_now * 100, 2),
                 ),
-            ]
-        )
+            ],
+        ]
+
         # plotly_figure(self.stock_number, df, line_num, "close")
         return price_now, text_list
 
     def get_EPS(self):
         fw = self.fw
         stock_id = self.stock_number
-        year = self.year
         estprice, eps = self.crwal_estimate_eps()
 
         if type(eps) != int and type(eps) != float:
@@ -196,9 +167,8 @@ class Stock_Predictor:
                     stock_id=stock_id,
                     start_date="2019-01-01",
                 )
-                lst = df[df.type == "EPS"].values.tolist()
-                last_date = lst[-1][0]
-                lst_eps = [ll[3] for ll in lst]
+                lst_eps = df[df.type == "EPS"].values.tolist()
+                lst_eps = [ll[3] for ll in lst_eps]
                 eps = sum(lst_eps[-4:])
         return estprice, eps
 
@@ -211,16 +181,13 @@ class Stock_Predictor:
         estprice = -1
 
         # Get the cnyes news
-        search_str = "factset eps cnyes {} tw".format(sn)
+        search_str = f"factset eps cnyes {sn} tw"
         # print(search_str)
         search_results = get_google_search_results(search_str, 10)
         # print(search_results)
-        url_list = []
-        for url in search_results:
-            url = url.replace("print", "id")
-            if "cnyes.com" in url:
-                # print(url)
-                url_list.append(url)
+        url_list = [
+            url.replace("print", "id") for url in search_results if "cnyes.com" in url
+        ]
 
         time_dict = {}
         for url in url_list:
@@ -240,10 +207,9 @@ class Stock_Predictor:
         # print(url_list)
 
         for url in url_list:
-            result = requests.get(url)
-            soup = BeautifulSoup(result.text, "html.parser")
-
             try:
+                result = requests.get(url)
+                soup = BeautifulSoup(result.text, "html.parser")
                 webtitle = soup.find(id="article-container").text
 
                 if webtitle.split("(")[1].split("-")[0] != str(sn):
@@ -256,14 +222,11 @@ class Stock_Predictor:
 
                 res = []
 
-                # 提取表格的行
-                rows = soup.table.find_all("tr")
-
-                # 提取表頭
+                rows = soup.table.find_all("tr")  # 提取表格的行
                 headers = [
                     header.get_text(strip=True) for header in rows[0].find_all("td")
-                ]
-                res.append(headers)
+                ]  # 提取表頭
+                write2txt(headers, file=fw)
 
                 # print(headers[0])
                 if headers[0] != "預估值":
@@ -276,19 +239,14 @@ class Stock_Predictor:
                     res.append(row_data)
                     write2txt(res[-1], file=fw)
 
-                eps_title = res[0]
                 year_str = str(datetime.date.today().year + offset)
-                for idx, s in enumerate(eps_title):
+                for idx, s in enumerate(headers):
                     if year_str in s:
-                        offset = idx
-                        break
-                targ_eps = res[level]
-                write2txt(targ_eps, file=fw)
-                nums = targ_eps[int(offset)]
-                numsm1 = targ_eps[int(offset) - 1]
-
-                EPS = (float(nums.split("(")[0]) + float(numsm1.split("(")[0])) / 2
-                break
+                        EPS = (
+                            float(res[self.level][idx].split("(")[0])
+                            + float(res[self.level][idx - 1].split("(")[0])
+                        ) / 2
+                        return float(estprice), EPS
 
             except:
                 continue
@@ -297,40 +255,33 @@ class Stock_Predictor:
     def per_std(self, line_num=5, fig=False):
         api, sn = self.api, self.stock_number
         date_str = self.start_date
-        reg = linear_model.LinearRegression()
+        reg = LinearRegression()
         stock_data = api.taiwan_stock_per_pbr(stock_id=str(sn), start_date=date_str)
         data = stock_data["PER"].values.tolist()
         dates = stock_data["date"].values.tolist()
 
-        for e1, e2 in zip(data, dates):
-            if e1 == 0:
-                data.remove(e1)
-                dates.remove(e2)
-
-        idx = np.array([i for i in range(1, len(data) + 1)])
+        idx = np.arange(1, len(data) + 1)
         reg.fit(idx.reshape(-1, 1), data)
 
         # print(reg.coef_[0]) # 斜率
         # print(reg.intercept_) # 截距
         df = {}
-        df["date"] = np.array(dates)
-        # df['TL'] = reg.intercept_ +idx * reg.coef_[0]
-        # middle = sum(data) / len(data)
-        middle = statistics.median(data)
-        df["TL"] = np.full((len(data),), middle)
+        df = {
+            "date": np.array(dates),
+            "TL": np.full((len(data),), statistics.median(data)),
+        }
+
         df["y-TL"] = data - df["TL"]
         df["SD"] = df["y-TL"].std()
-        df["TL-3SD"] = df["TL"] - 3 * df["SD"]
-        df["TL-2SD"] = df["TL"] - 2 * df["SD"]
-        df["TL-SD"] = df["TL"] - df["SD"]
-
-        df["TL+3SD"] = df["TL"] + 3 * df["SD"]
-        df["TL+2SD"] = df["TL"] + 2 * df["SD"]
-        df["TL+SD"] = df["TL"] + df["SD"]
-
+        for i in range(1, 4):
+            df[f"TL-{i}SD"] = df["TL"] - i * df["SD"]
+            df[f"TL+{i}SD"] = df["TL"] + i * df["SD"]
         df["PER"] = np.array(data)
-
-        comp_list = ["TL+3SD", "TL+2SD", "TL+SD", "TL", "TL-SD", "TL-2SD", "TL-3SD"]
+        comp_list = (
+            [f"TL+{i}SD" for i in range(3, 0, -1)]
+            + ["TL"]
+            + [f"TL-{i}SD" for i in range(1, 4)]
+        )
 
         if fig:
             plotly_figure(sn, df, line_num, "PER")

@@ -71,11 +71,7 @@ def plotly_figure(sn, df, line_num, y_label):
 
 
 def ResultOutput(title):
-    fw = open(f"results/{title}.txt", "w")
-    csvfile = open(f"results/{title}.csv", "w", newline="", encoding="utf-8")
-    csvwriter = csv.writer(csvfile, delimiter=",")
-    csvwriter.writerow(
-        [
+    rowtitle = [
             "股票名稱",
             "股票代號",
             "昨日價格",
@@ -118,8 +114,18 @@ def ResultOutput(title):
             "市場預估價潛在漲幅",
             "未來本益比為",
         ]
-    )
-    return fw, csvwriter, csvfile
+    fw = open(f"results/{title}.txt", "w")
+
+    # apple
+    apple_csvfile = open(f"results/Apple_{title}.csv", "w", newline="", encoding="utf-8")
+    apple_csvwriter = csv.writer(apple_csvfile, delimiter=",")
+    apple_csvwriter.writerow(rowtitle)
+    # google
+    google_csvfile = open(f"results/google_{title}.csv", "w", newline="", encoding="utf-8")
+    google_csvwriter = csv.writer(google_csvfile, delimiter=",")
+    google_csvwriter.writerow(rowtitle)
+    
+    return fw, [apple_csvwriter, google_csvwriter], [apple_csvfile, google_csvfile]
 
 
 def get_google_search_results(query, num_results=10):

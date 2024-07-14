@@ -103,6 +103,7 @@ if __name__ == "__main__":
             )
 
             fw.close()
-            csvfile.close()
+            csvfile[0].close()
+            csvfile[1].close()
         print("Enter to continue...")
         input()

@@ -318,6 +318,10 @@ def calculator(
             str(stock_id),
             f'=STOCK(CONCAT(B{No+1},"{".two" if stock_type=="tpex" else ".tw"}"))',
         )
+        google_PriceGet = "".join([
+            '=IMPORTXML(CONCATENATE("https://tw.stock.yahoo.com/quote/",B{},".TWO"),'.format(No+1),
+            '"//*[@id=""main-0-QuoteHeader-Proxy""]/div/div[2]/div[1]/div/span[1]")'
+            ])
         # =======================================================================
 
         # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps
@@ -422,6 +426,8 @@ def calculator(
             )
 
         if cw:
-            cw.writerow(csvdata)
+            cw[0].writerow(csvdata)
+            csvdata[2] = google_PriceGet
+            cw[1].writerow(csvdata)
 
         time.sleep(5)

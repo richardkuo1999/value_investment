@@ -6,7 +6,7 @@ import os
 
 from stock_selector.stock_select import getETFConstituent, getInstitutional_TOP50
 from calculator.calculator import calculator
-from utils.utils import ResultOutput, txt_read, write2txt, Parameter_read
+from utils.utils import ResultOutput, txt_read, ModifideParameter, Parameter_read
 
 
 finmind_token = txt_read("token.txt")
@@ -24,30 +24,6 @@ parameter -> level
 Description: select forward eps value
 # 0: high, 1: low, 2: average, 3: medium
 """
-
-
-def ModifideParameter():
-    msgList = [
-        "EPS year:  (default is 1)\nN: This year\n\t0: N + 0\n\t1: N + 1\n\t2: N + 2",
-        "select forward eps value:  (default is 3)\n\t0: high\n\t1: low\n\t2: average\n\t3: medium",
-        "Reference how many years: (default is 4.5)",
-        "e_eps (default is None):",
-    ]
-    default = [1, 3, 4.5, None]
-
-    Parameter = []
-    with open("Parameter.txt", "w") as pf:
-        for i in range(4):
-            os.system("cls")
-            print(msgList[i])
-            UserInput = input("Input: ")
-            try:
-                Parameter.append(float(UserInput))
-            except:
-                print(f"Use default Value: {default[i]}")
-                Parameter.append(default[i])
-            write2txt(Parameter[i], pf)
-    return Parameter
 
 
 if __name__ == "__main__":
@@ -109,6 +85,7 @@ if __name__ == "__main__":
 
         else:
             print("Enter Error!!")
+            input()
             continue
         for title, StockList in StockLists.items():
             print(title, StockList)
@@ -127,3 +104,5 @@ if __name__ == "__main__":
 
             fw.close()
             csvfile.close()
+        print("Enter to continue...")
+        input()

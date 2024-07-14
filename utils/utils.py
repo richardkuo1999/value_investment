@@ -1,8 +1,11 @@
+import os
 import csv
 import requests
 from enum import Enum
 from bs4 import BeautifulSoup
 import plotly.graph_objects as go
+
+default_Parameter = [1, 3, 4.5, None]
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
@@ -148,8 +151,52 @@ def Parameter_read(file):
         year = float(txtdata[2])
         e_eps = float(txtdata[3]) if txtdata[3].lower() != "none" else None
     except:
-        sel, level, year, e_eps = 1, 4, 4.5, None
+        sel, level, year, e_eps = default_Parameter
     return [sel, level, year, e_eps]
+
+"""
+parameter -> sel
+Description: EPS year
+# N: This year
+# 0: N + 0
+# 1: N + 1
+# 2: N + 2
+
+parameter -> level
+Description: select forward eps value
+# 0: high, 1: low, 2: average, 3: medium
+"""
+
+
+def ModifideParameter():
+    msgList = [
+        "EPS year:  (default is 1)\nN: This year\n\t0: N + 0\n\t1: N + 1\n\t2: N + 2",
+        "select forward eps value:  (default is 3)\n\t0: high\n\t1: low\n\t2: average\n\t3: medium",
+        "Reference how many years: (default is 4.5)",
+        "e_eps (default is None):",
+    ]
+    float_input = [2, 3]
+
+    Parameter = []
+    with open("Parameter.txt", "w") as pf:
+        for i in range(4):
+            os.system("cls")
+            print(msgList[i])
+            UserInput = input("Input: ")
+            try:
+                if i in float_input:
+                    Parameter.append(float(UserInput))
+                else:
+                    Parameter.append(int(UserInput))
+            except:
+                print(f"Use default Value: {default_Parameter[i]}")
+                Parameter.append(default_Parameter[i])
+                input()
+            write2txt(Parameter[i], pf)
+
+        print(f"your Parameter: {Parameter}")
+        input()
+    return Parameter
 
 def get_stock_info(all_stock_info, stock_id, tag1, tag2):
     return all_stock_info.loc[all_stock_info[tag1] == stock_id].iloc[0][tag2]

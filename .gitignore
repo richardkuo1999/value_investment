@@ -3,3 +3,4 @@ token.txt
 __pycache__
 .google-cookie
 Parameter.txt
+.DS_Store

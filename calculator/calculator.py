@@ -153,7 +153,7 @@ class Stock_Predictor:
     def get_EPS(self):
         fw = self.fw
         stock_id = self.stock_number
-        estprice, eps = self.crwal_estimate_eps()
+        estprice, eps, DateTime = self.crwal_estimate_eps()
 
         if type(eps) != int and type(eps) != float:
             write2txt(
@@ -170,7 +170,7 @@ class Stock_Predictor:
                 lst_eps = df[df.type == "EPS"].values.tolist()
                 lst_eps = [ll[3] for ll in lst_eps]
                 eps = sum(lst_eps[-4:])
-        return estprice, eps
+        return estprice, eps, DateTime
 
     def crwal_estimate_eps(self):
         sn = self.stock_number
@@ -179,6 +179,7 @@ class Stock_Predictor:
         EPS = None
         fw = self.fw
         estprice = -1
+        DateTime = ""
 
         # Get the cnyes news
         search_str = f"factset eps cnyes {sn} tw"
@@ -206,7 +207,8 @@ class Stock_Predictor:
         url_list = [time_dict[time] for time in sorted_times]
         # print(url_list)
 
-        for url in url_list:
+        for i, url in enumerate(url_list):
+            DateTime = sorted_times[i]
             try:
                 result = requests.get(url)
                 soup = BeautifulSoup(result.text, "html.parser")
@@ -246,11 +248,11 @@ class Stock_Predictor:
                             float(res[self.level][idx].split("(")[0])
                             + float(res[self.level][idx - 1].split("(")[0])
                         ) / 2
-                        return float(estprice), EPS
+                        return float(estprice), EPS, DateTime
 
             except:
                 continue
-        return float(estprice), EPS
+        return float(estprice), EPS, DateTime
 
     def per_std(self, line_num=5, fig=False):
         api, sn = self.api, self.stock_number
@@ -302,7 +304,7 @@ def calculator(
     split_str = "=" * 100
     for i, stock_id in enumerate(StockList, start=1):
         No = i
-        csvdata = [None] * 41
+        csvdata = [None] * 42
         Check_api_request_limit(finmind_token)
 
         # 股票基本資訊
@@ -327,15 +329,17 @@ def calculator(
         # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps
         write2txt(split_str, file=fw)
 
-        estprice, eps = Stock_item.get_EPS()  # get_EPS
+        estprice, eps, DateTime = Stock_item.get_EPS()  # get_EPS
 
         write2txt(
-            "股票代號:\t{},\t\t估計EPS:\t{:.2f},\t\t歷史本益比參考年數:\t{}".format(
-                stock_id, eps, year
+            "股票代號:\t{},\t\t估計EPS:\t{:.2f},\t\t歷史本益比參考年數:\t{}\n資料日期:\t{}".format(
+                stock_id, eps, year, DateTime
             ),
             file=fw,
         )
+        
         csvdata[3], csvdata[4] = str(eps), str(year)
+        csvdata[41] = (str(DateTime).split(" ")[0]).replace("-","/")
         # =======================================================================
 
         # Usage: stock_number, years

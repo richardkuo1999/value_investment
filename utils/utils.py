@@ -113,6 +113,7 @@ def ResultOutput(title):
             "市場預估價",
             "市場預估價潛在漲幅",
             "未來本益比為",
+            "資料時間",
         ]
     fw = open(f"results/{title}.txt", "w")
 

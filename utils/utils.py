@@ -1,6 +1,7 @@
 import os
 import csv
 import requests
+from datetime import datetime
 from enum import Enum
 from bs4 import BeautifulSoup
 import plotly.graph_objects as go
@@ -130,7 +131,7 @@ def ResultOutput(title):
 
 
 def get_google_search_results(query, num_results=10):
-    results = []
+    results_dict = {}
     url = f"https://www.google.com/search?q={query}&num={num_results}"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
@@ -138,10 +139,33 @@ def get_google_search_results(query, num_results=10):
         search_results = soup.find_all("div", class_="g")
         for result in search_results:
             link = result.find("a")["href"]
-            results.append(link)
+            # print(link)
+            if "cnyes.com" in link:
+                link = link.replace("print", "id")
+                link = link.replace("anuenews", "news")
+                # print(result)
+                try:
+                    date_str = result.find('span', class_='LEwnzc Sqrs4e')
+                    if not date_str:
+                        date_str = result.find('span', class_='xzrguc')
+                    date_str = date_str.text.split(" — ")[0]
+                    # print(date_str)
+                    
+                    if '年' in date_str:
+                        date_obj = datetime.strptime(date_str, '%Y年%m月%d日')
+                    else:
+                        date_obj = datetime.strptime(date_str, '%b %d, %Y')
+                        
+                    # print(date_obj)
+                    if date_obj:
+                        results_dict[link] = date_obj
+                except:
+                    pass
+
+
     if response.status_code == 429:
         raise ("429 Too Many Requests")
-    return results
+    return results_dict
 
 
 def txt_read(file):

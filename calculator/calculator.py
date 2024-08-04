@@ -183,32 +183,17 @@ class Stock_Predictor:
 
         # Get the cnyes news
         search_str = f"factset eps cnyes {sn} tw"
+        # search_str = f'factset eps cnyes {sn} tw site:https://cnyes.com/ AND intitle:"{sn}" AND intitle:"factset"'
         # print(search_str)
-        search_results = get_google_search_results(search_str, 10)
-        # print(search_results)
-        url_list = [
-            url.replace("print", "id") for url in search_results if "cnyes.com" in url
-        ]
+        SearchResult_dict = get_google_search_results(search_str, 10000)
+        # print(SearchResult_dict)
 
-        time_dict = {}
-        for url in url_list:
-            try:
-                result = requests.get(url)
-                soup = BeautifulSoup(result.text, "html.parser")
-                webtime = soup.find(class_="alr4vq1").contents[-1]
-                webtime = datetime.datetime.strptime(webtime, "%Y-%m-%d %H:%M")
-                time_dict[webtime] = url
-                # print(webtime, url)
-            except:
-                continue
-
-        sorted_times = sorted(time_dict.keys(), reverse=True)
-        # print(sorted_times)
-        url_list = [time_dict[time] for time in sorted_times]
+        url_list = sorted(SearchResult_dict.items(), key=lambda item: item[1], reverse=True)
         # print(url_list)
 
-        for i, url in enumerate(url_list):
-            DateTime = sorted_times[i]
+
+        for i, (url, url_time) in enumerate(url_list):
+            DateTime = url_time
             try:
                 result = requests.get(url)
                 soup = BeautifulSoup(result.text, "html.parser")

@@ -182,8 +182,8 @@ class Stock_Predictor:
         DateTime = ""
 
         # Get the cnyes news
-        search_str = f"factset eps cnyes {sn} tw"
-        # search_str = f'factset eps cnyes {sn} tw site:https://cnyes.com/ AND intitle:"{sn}" AND intitle:"factset"'
+        # search_str = f"factset eps cnyes {sn} tw"
+        search_str = f'factset eps cnyes {sn} tw site:https://cnyes.com/ AND intitle:"{sn}" AND intitle:"factset"'
         # print(search_str)
         SearchResult_dict = get_google_search_results(search_str, 10000)
         # print(SearchResult_dict)

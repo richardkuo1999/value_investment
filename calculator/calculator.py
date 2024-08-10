@@ -182,13 +182,11 @@ class Stock_Predictor:
         DateTime = ""
 
         # Get the cnyes news
-        search_str = f"factset eps cnyes {sn} tw"
+        # search_str = f"factset eps cnyes {sn} tw"
+        search_str = f'factset eps cnyes {sn} tw site:https://cnyes.com/ AND intitle:"{sn}" AND intitle:"factset"'
         # print(search_str)
-        search_results = get_google_search_results(search_str, 10)
-        # print(search_results)
-        url_list = [
-            url.replace("print", "id") for url in search_results if "cnyes.com" in url
-        ]
+        url_list = get_google_search_results(search_str, 20)
+        # print(url_list)
 
         time_dict = {}
         for url in url_list:
@@ -434,4 +432,4 @@ def calculator(
             csvdata[2] = google_PriceGet
             cw[1].writerow(csvdata)
 
-        time.sleep(5)
+        # time.sleep(5)

@@ -3,6 +3,7 @@ import csv
 import requests
 from enum import Enum
 from bs4 import BeautifulSoup
+from googlesearch import search
 import plotly.graph_objects as go
 
 default_Parameter = [1, 3, 4.5, None]
@@ -131,16 +132,19 @@ def ResultOutput(title):
 
 def get_google_search_results(query, num_results=10):
     results = []
-    url = f"https://www.google.com/search?q={query}&num={num_results}"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, "html.parser")
-        search_results = soup.find_all("div", class_="g")
-        for result in search_results:
-            link = result.find("a")["href"]
-            results.append(link)
-    if response.status_code == 429:
-        raise ("429 Too Many Requests")
+    # url = f"https://www.google.com/search?q={query}&num={num_results}"
+    # response = requests.get(url, headers=headers)
+    # if response.status_code == 200:
+    #     soup = BeautifulSoup(response.text, "html.parser")
+    #     search_results = soup.find_all("div", class_="g")
+    #     for result in search_results:
+    #         link = result.find("a")["href"]
+    #         results.append(link)
+    # if response.status_code == 429:
+    #     raise ("429 Too Many Requests")
+    for j in search(query, stop=num_results, pause=1.0): 
+        if "cnyes.com" in j:
+            results.append(j.replace("print", "id"))
     return results
 
 

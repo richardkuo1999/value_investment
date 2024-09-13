@@ -1,40 +1,24 @@
 import os
 import csv
 import requests
+import pandas as pd
 from enum import Enum
+from pathlib import Path
 from bs4 import BeautifulSoup
 from googlesearch import search
 import plotly.graph_objects as go
+
+
+def txt_read(file: Path) -> str:
+    txtdata = file.read_text()
+    return txtdata
+
 
 default_Parameter = [1, 3, 4.5, None]
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
 }
-
-
-class Future(Enum):
-    NOW = 0
-    NEXT = 1
-    LATER = 2
-
-
-class Msg(Enum):
-    DEBUG = 0
-    INFO = 1
-    WARNING = 2
-    ERROR = 3
-    CIRITCAL = 4
-
-
-def msg_show(level, msg):
-    updated_msg = ""
-    level_list = ["DEBUG: ", "INFO: ", "WARNING: ", "ERROR: ", "CRITICAL: "]
-    for i in Msg:
-        if level == i:
-            updated_msg = level_list[i.value] + msg
-            break
-    print(updated_msg)
 
 
 def write2txt(msg, file=None):
@@ -71,62 +55,66 @@ def plotly_figure(sn, df, line_num, y_label):
     fig.show()
 
 
-def ResultOutput(title):
+def ResultOutput(result_path, title):
     rowtitle = [
-            "股票名稱",
-            "股票代號",
-            "昨日價格",
-            "估計EPS",
-            "歷史PE參考年數目",
-            "PE25%",
-            "PE25%價位",
-            "PE25%潛在漲幅",
-            "PE50%",
-            "PE50%價位",
-            "PE50%潛在漲幅",
-            "PE75%",
-            "PE75%價位",
-            "PE75%潛在漲幅",
-            "PE平均",
-            "PE平均價位",
-            "PE平均潛在漲幅",
-            "TL+3SD PE",
-            "TL+3SD價位",
-            "TL+3SD在漲幅",
-            "TL+2SD PE",
-            "TL+2SD價位",
-            "TL+2SD在漲幅",
-            "TL+SD PE",
-            "TL+SD價位",
-            "TL+SD潛在漲幅",
-            "TL PE",
-            "TL價位",
-            "TL潛在漲幅",
-            "TL-SD PE",
-            "TLL-SD價位",
-            "TLL-SD潛在漲幅",
-            "TL-2SD PE",
-            "TL-2SD價位",
-            "TL-2SD潛在漲幅",
-            "TL-3SD PE",
-            "T-3SD價位",
-            "TL-3SD潛在漲幅",
-            "市場預估價",
-            "市場預估價潛在漲幅",
-            "未來本益比為",
-            "資料時間",
-        ]
-    fw = open(f"results/{title}.txt", "w")
+        "股票名稱",
+        "股票代號",
+        "昨日價格",
+        "估計EPS",
+        "歷史PE參考年數目",
+        "PE25%",
+        "PE25%價位",
+        "PE25%潛在漲幅",
+        "PE50%",
+        "PE50%價位",
+        "PE50%潛在漲幅",
+        "PE75%",
+        "PE75%價位",
+        "PE75%潛在漲幅",
+        "PE平均",
+        "PE平均價位",
+        "PE平均潛在漲幅",
+        "TL+3SD PE",
+        "TL+3SD價位",
+        "TL+3SD在漲幅",
+        "TL+2SD PE",
+        "TL+2SD價位",
+        "TL+2SD在漲幅",
+        "TL+SD PE",
+        "TL+SD價位",
+        "TL+SD潛在漲幅",
+        "TL PE",
+        "TL價位",
+        "TL潛在漲幅",
+        "TL-SD PE",
+        "TLL-SD價位",
+        "TLL-SD潛在漲幅",
+        "TL-2SD PE",
+        "TL-2SD價位",
+        "TL-2SD潛在漲幅",
+        "TL-3SD PE",
+        "T-3SD價位",
+        "TL-3SD潛在漲幅",
+        "市場預估價",
+        "市場預估價潛在漲幅",
+        "未來本益比為",
+        "資料時間",
+    ]
+    fw = open(result_path / f"{title}.txt", "w")
 
     # apple
-    apple_csvfile = open(f"results/Apple_{title}.csv", "w", newline="", encoding="utf-8")
+    apple_csvfile = open(
+        result_path / f"Apple_{title}.csv", "w", newline="", encoding="utf-8"
+    )
     apple_csvwriter = csv.writer(apple_csvfile, delimiter=",")
     apple_csvwriter.writerow(rowtitle)
     # google
-    google_csvfile = open(f"results/google_{title}.csv", "w", newline="", encoding="utf-8")
+    google_csvfile = open(
+        result_path / f"google_{title}.csv", "w", newline="", encoding="utf-8"
+    )
     google_csvwriter = csv.writer(google_csvfile, delimiter=",")
     google_csvwriter.writerow(rowtitle)
-    
+
     return fw, [apple_csvwriter, google_csvwriter], [apple_csvfile, google_csvfile]
 
 
@@ -142,16 +130,10 @@ def get_google_search_results(query, num_results=10):
     #         results.append(link)
     # if response.status_code == 429:
     #     raise ("429 Too Many Requests")
-    for j in search(query, stop=num_results, pause=1.0): 
+    for j in search(query, stop=num_results, pause=1.0):
         if "cnyes.com" in j:
             results.append(j.replace("print", "id"))
     return results
-
-
-def txt_read(file):
-    with open(file, "r") as f:
-        txtdata = f.read()
-    return txtdata
 
 
 def Parameter_read(file):
@@ -164,6 +146,7 @@ def Parameter_read(file):
     except:
         sel, level, year, e_eps = default_Parameter
     return [sel, level, year, e_eps]
+
 
 """
 parameter -> sel
@@ -179,7 +162,7 @@ Description: select forward eps value
 """
 
 
-def ModifideParameter():
+def ModifideParameter() -> list:
     msgList = [
         "EPS year:  (default is 1)\nN: This year\n\t0: N + 0\n\t1: N + 1\n\t2: N + 2",
         "select forward eps value:  (default is 3)\n\t0: high\n\t1: low\n\t2: average\n\t3: medium",
@@ -208,6 +191,3 @@ def ModifideParameter():
         print(f"your Parameter: {Parameter}")
         input()
     return Parameter
-
-def get_stock_info(all_stock_info, stock_id, tag1, tag2):
-    return all_stock_info.loc[all_stock_info[tag1] == stock_id].iloc[0][tag2]

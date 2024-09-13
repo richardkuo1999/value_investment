@@ -9,27 +9,12 @@ from sklearn.linear_model import LinearRegression
 from utils.utils import (
     plotly_figure,
     write2txt,
-    Msg,
     get_google_search_results,
-    get_stock_info,
 )
 
 
-def Check_api_request_limit(finmind_token):
-    resp = requests.get(
-        "https://api.web.finmindtrade.com/v2/user_info", params={"token": finmind_token}
-    )
-    api_request_limit = resp.json()["api_request_limit"]
-    user_count = resp.json()["user_count"]
-    if (api_request_limit - user_count) <= 10:
-        print(f"user_count/api_request_limit: {user_count}/{api_request_limit}")
-        time.sleep(600)
-        Check_api_request_limit(finmind_token)
-
-
 class Stock_Predictor:
-    def __init__(self, api, sn, parameter, fw=None):
-        self.api = api
+    def __init__(self, Database, sn, parameter, fw=None):
         self.str_lst = []
         self.sel, self.level, self.year, self.EPS = parameter
         now_time = datetime.datetime.now()
@@ -40,21 +25,15 @@ class Stock_Predictor:
             self.start_date
         )
         self.fw = fw
-        self.get_warning()
-
-    def get_warning(self):
-        bar = "=" * (len(self.warn_str) // 4)
-        self.str_lst.extend([bar, f"={self.warn_str}=", bar])
+        self.Database = Database
+        self.Database.stock_number, self.Database.start_date = sn, self.start_date
 
     def get_PER(self):
         lst_per = []
-        df = self.api.taiwan_stock_per_pbr(
-            stock_id=str(self.stock_number), start_date=self.start_date
-        )
-        data = df["PER"]
-        lst_per = [np.percentile(data, p) for p in (25, 50, 75)]
-        lst_per.append(round(statistics.mean(data), 2))
-        self.current_pe = data.values.tolist()[-1]
+        _, per = self.Database.get_PER()
+        lst_per = [np.percentile(per, p) for p in (25, 50, 75)]
+        lst_per.append(round(statistics.mean(per), 2))
+        self.current_pe = per[-1]
         return np.array(lst_per)
 
     def mean_reversion(self, line_num=5):
@@ -62,25 +41,21 @@ class Stock_Predictor:
 
         prob_data = [0.001, 0.021, 0.136, 0.341, 0.341, 0.136, 0.021, 0.001]
         reg = LinearRegression()
-        stock_data = self.api.taiwan_stock_daily(
-            stock_id=self.stock_number, start_date=self.start_date
-        )
-        data = stock_data["close"].values.tolist()
-        dates = stock_data["date"].values.tolist()
+        dates, price = self.Database.get_closing_price()
 
-        idx = np.arange(1, len(data) + 1)
-        reg.fit(idx.reshape(-1, 1), data)
+        idx = np.arange(1, len(price) + 1)
+        reg.fit(idx.reshape(-1, 1), price)
 
         # print(reg.coef_[0]) # 斜率
         # print(reg.intercept_) # 截距
         df = {"date": np.array(dates), "TL": reg.intercept_ + idx * reg.coef_[0]}
-        df["y-TL"] = data - df["TL"]
+        df["y-TL"] = price - df["TL"]
         df["SD"] = df["y-TL"].std()
         for i in range(1, 4):
             df[f"TL-{i}SD"] = df["TL"] - i * df["SD"]
             df[f"TL+{i}SD"] = df["TL"] + i * df["SD"]
 
-        df["close"] = np.array(data)
+        df["close"] = np.array(price)
         price_now = df["close"][-1]
         up_prob, hold_prob, down_prob = 0, 0, sum(prob_data)
         comp_list = (
@@ -107,44 +82,29 @@ class Stock_Predictor:
         )
 
         text_list = [
-            [
-                Msg.WARNING,
-                "均值回歸適合使用在穩定成長的股票上，如大盤or台積電等，高速成長及景氣循環股不適用，請小心服用。",
-            ],
-            [Msg.WARNING, "偏離越多標準差越遠代表趨勢越強，請勿直接進場。"],
-            [
-                Msg.INFO,
-                "{} 往上的機率為: {}%, 維持在這個區間的機率為: {}%, 往下的機率為: {}%".format(
-                    self.stock_number,
-                    round(up_prob * 100, 2),
-                    round(hold_prob * 100, 2),
-                    round(down_prob * 100, 2),
-                ),
-            ],
-            [Msg.INFO, "目前股價: {}, TL價: {}".format(price_now, round(TL, 2))],
-            [Msg.INFO, "做多評估："],
-            [
-                Msg.INFO,
-                "期望值為: {}, 期望報酬率為: {}% (保守計算: 上檔TL，下檔歸零)".format(
-                    round(expect_val_bull_1, 2),
-                    round(expect_val_bull_1 / price_now * 100, 2),
-                ),
-            ],
-            [
-                Msg.INFO,
-                "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔TL，下檔-3SD)".format(
-                    round(expect_val_bull_2, 2),
-                    round(expect_val_bull_2 / price_now * 100, 2),
-                ),
-            ],
-            [Msg.INFO, "做空評估: "],
-            [
-                Msg.INFO,
-                "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔+3SD，下檔TL)".format(
-                    round(expect_val_bear_1, 2),
-                    round(expect_val_bear_1 / price_now * 100, 2),
-                ),
-            ],
+            "均值回歸適合使用在穩定成長的股票上，如大盤or台積電等，高速成長及景氣循環股不適用，請小心服用。",
+            "偏離越多標準差越遠代表趨勢越強，請勿直接進場。",
+            "{} 往上的機率為: {}%, 維持在這個區間的機率為: {}%, 往下的機率為: {}%".format(
+                self.stock_number,
+                round(up_prob * 100, 2),
+                round(hold_prob * 100, 2),
+                round(down_prob * 100, 2),
+            ),
+            "目前股價: {}, TL價: {}".format(price_now, round(TL, 2)),
+            "做多評估：",
+            "期望值為: {}, 期望報酬率為: {}% (保守計算: 上檔TL，下檔歸零)".format(
+                round(expect_val_bull_1, 2),
+                round(expect_val_bull_1 / price_now * 100, 2),
+            ),
+            "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔TL，下檔-3SD)".format(
+                round(expect_val_bull_2, 2),
+                round(expect_val_bull_2 / price_now * 100, 2),
+            ),
+            "做空評估: ",
+            "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔+3SD，下檔TL)".format(
+                round(expect_val_bear_1, 2),
+                round(expect_val_bear_1 / price_now * 100, 2),
+            ),
         ]
 
         # plotly_figure(self.stock_number, df, line_num, "close")
@@ -163,12 +123,7 @@ class Stock_Predictor:
                 eps = self.EPS
             else:
                 # 近四季EPS總和
-                df = self.api.taiwan_stock_financial_statement(
-                    stock_id=stock_id,
-                    start_date="2019-01-01",
-                )
-                lst_eps = df[df.type == "EPS"].values.tolist()
-                lst_eps = [ll[3] for ll in lst_eps]
+                lst_eps = self.Database.get_EPS()
                 eps = sum(lst_eps[-4:])
         return estprice, eps, DateTime
 
@@ -253,30 +208,27 @@ class Stock_Predictor:
         return float(estprice), EPS, DateTime
 
     def per_std(self, line_num=5, fig=False):
-        api, sn = self.api, self.stock_number
         date_str = self.start_date
         reg = LinearRegression()
-        stock_data = api.taiwan_stock_per_pbr(stock_id=str(sn), start_date=date_str)
-        data = stock_data["PER"].values.tolist()
-        dates = stock_data["date"].values.tolist()
+        dates, per = self.Database.get_PER()
 
-        idx = np.arange(1, len(data) + 1)
-        reg.fit(idx.reshape(-1, 1), data)
+        idx = np.arange(1, len(per) + 1)
+        reg.fit(idx.reshape(-1, 1), per)
 
         # print(reg.coef_[0]) # 斜率
         # print(reg.intercept_) # 截距
         df = {}
         df = {
             "date": np.array(dates),
-            "TL": np.full((len(data),), statistics.median(data)),
+            "TL": np.full((len(per),), statistics.median(per)),
         }
 
-        df["y-TL"] = data - df["TL"]
+        df["y-TL"] = per - df["TL"]
         df["SD"] = df["y-TL"].std()
         for i in range(1, 4):
             df[f"TL-{i}SD"] = df["TL"] - i * df["SD"]
             df[f"TL+{i}SD"] = df["TL"] + i * df["SD"]
-        df["PER"] = np.array(data)
+        df["PER"] = np.array(per)
         comp_list = (
             [f"TL+{i}SD" for i in range(3, 0, -1)]
             + ["TL"]
@@ -290,9 +242,7 @@ class Stock_Predictor:
 
 
 def calculator(
-    finmind_token,
-    api,
-    all_stock_info,
+    Database,
     StockList,
     parameter,
     fw=None,
@@ -303,12 +253,13 @@ def calculator(
     for i, stock_id in enumerate(StockList, start=1):
         No = i
         csvdata = [None] * 42
-        Check_api_request_limit(finmind_token)
+
+        Database.Check_limit()
 
         # 股票基本資訊
-        StockName = get_stock_info(all_stock_info, stock_id, "stock_id", "stock_name")
-        stock_type = get_stock_info(all_stock_info, stock_id, "stock_id", "type")
-        Stock_item = Stock_Predictor(api, stock_id, parameter, fw)
+        StockName = Database.get_stock_info(stock_id, "stock_id", "stock_name")
+        stock_type = Database.get_stock_info(stock_id, "stock_id", "type")
+        Stock_item = Stock_Predictor(Database, stock_id, parameter, fw)
 
         write2txt(split_str, file=fw)
         print(f"{No}/{len(StockList)}")
@@ -318,16 +269,20 @@ def calculator(
             str(stock_id),
             f'=STOCK(CONCAT(B{No+1},"{".two" if stock_type=="tpex" else ".tw"}"))',
         )
-        google_PriceGet = "".join([
-            '=IMPORTXML(CONCATENATE("https://tw.stock.yahoo.com/quote/",B{},".TWO"),'.format(No+1),
-            '"//*[@id=""main-0-QuoteHeader-Proxy""]/div/div[2]/div[1]/div/span[1]")'
-            ])
+        google_PriceGet = "".join(
+            [
+                '=IMPORTXML(CONCATENATE("https://tw.stock.yahoo.com/quote/",B{},".TWO"),'.format(
+                    No + 1
+                ),
+                '"//*[@id=""main-0-QuoteHeader-Proxy""]/div/div[2]/div[1]/div/span[1]")',
+            ]
+        )
         # =======================================================================
 
         # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps
         write2txt(split_str, file=fw)
 
-        estprice, eps, DateTime = Stock_item.get_EPS()  # get_EPS
+        estprice, eps, DateTime = Stock_item.get_EPS()
 
         write2txt(
             "股票代號:\t{},\t\t估計EPS:\t{:.2f},\t\t歷史本益比參考年數:\t{}\n資料日期:\t{}".format(
@@ -335,9 +290,9 @@ def calculator(
             ),
             file=fw,
         )
-        
+
         csvdata[3], csvdata[4] = str(eps), str(year)
-        csvdata[41] = (str(DateTime).split(" ")[0]).replace("-","/")
+        csvdata[41] = (str(DateTime).split(" ")[0]).replace("-", "/")
         # =======================================================================
 
         # Usage: stock_number, years
@@ -345,7 +300,7 @@ def calculator(
         write2txt(split_str, file=fw)
         write2txt("計算股價均值回歸......\n", file=fw)
 
-        price_now, text_list = Stock_item.mean_reversion()  # mean_reversion
+        price_now, text_list = Stock_item.mean_reversion()
 
         for l in text_list:
             write2txt(l, file=fw)
@@ -373,7 +328,7 @@ def calculator(
         write2txt(split_str, file=fw)
         write2txt("計算本益比四分位數與平均本益比......\n", file=fw)
 
-        pe_list = Stock_item.get_PER()  # get_PER
+        pe_list = Stock_item.get_PER()
 
         uniformat = (
             "本益比{}% 為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
@@ -411,7 +366,7 @@ def calculator(
         uniformat = "{:<20} {:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
         write2txt("計算本益比標準差......\n", file=fw)
 
-        (df, comp_list) = Stock_item.per_std(fig=False)  # per_std
+        (df, comp_list) = Stock_item.per_std(fig=False)
 
         for i, title in enumerate(comp_list):
             PE, Price = df[title][-1], eps * df[title][-1]
@@ -432,4 +387,5 @@ def calculator(
             csvdata[2] = google_PriceGet
             cw[1].writerow(csvdata)
 
+        del Stock_item
         # time.sleep(5)

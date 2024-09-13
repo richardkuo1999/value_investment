@@ -1,15 +1,13 @@
 import shutil
 from termcolor import *
-from FinMind.data import DataLoader
 import os
+from pathlib import Path
 
 
-from stock_selector.stock_select import getETFConstituent, getInstitutional_TOP50
+from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
 from calculator.calculator import calculator
-from utils.utils import ResultOutput, txt_read, ModifideParameter, Parameter_read
-
-
-finmind_token = txt_read("token.txt")
+from utils.utils import ResultOutput, ModifideParameter, Parameter_read
+from Database.finmind import Finminder
 
 
 """
@@ -27,24 +25,26 @@ Description: select forward eps value
 
 
 if __name__ == "__main__":
+    old_result = Path("results", "last_result")
+    new_result = Path("results", "new_result")
+    TokenPath = Path("token.txt")
+    ParameterPath = Path("Parameter.txt")
 
-    if finmind_token == "":
-        print("Put the token.txt")
-        exit()
+    Database = Finminder(TokenPath)
 
-    # Load finmind api
-    api = DataLoader()
-    api.login_by_token(api_token=finmind_token)
-    all_stock_info = api.taiwan_stock_info()
-
-    # recreate folder
-    if os.path.exists("results"):
-        shutil.rmtree("results")
-    os.mkdir("results")
+    # create folder
+    if not new_result.exists():
+        new_result.mkdir(parents=True, exist_ok=True)
+    else:
+        old_result.mkdir(parents=True, exist_ok=True)
+        os.system("ls")
+        os.system("ls results")
+        for file in new_result.iterdir():
+            file.rename((old_result / file.name))
 
     # Read the caculate Parameter
-    if os.path.exists("Parameter.txt"):
-        parameter = Parameter_read("Parameter.txt")
+    if ParameterPath.exists():
+        parameter = Parameter_read(ParameterPath)
     else:
         parameter = ModifideParameter()
 
@@ -57,14 +57,14 @@ if __name__ == "__main__":
 
         # 1. 查詢ETF成分股
         if UserInput == "1":
-            UserInput = input("1.0050, 0051, 006201\n2. 自行輸入\n輸入: ")
+            UserInput = input("1.0050, 006201, 0051\n2. 自行輸入\n輸入: ")
             ETFList = []
             if UserInput == "1":
-                ETFList = ["0050", "0051", "006201"]
+                ETFList = ["0050", "006201", "0051"]
             elif UserInput == "2":
                 ETFList = input("請用空格隔開: ").split(" ")
-            for ETF_ID in ETFList:
-                StockLists[ETF_ID] = getETFConstituent(all_stock_info, ETF_ID)
+            for etf in ETFList:
+                StockLists[etf] = getETFConstituent(Database, etf)
 
         # 2. 查詢個股
         elif UserInput == "2":
@@ -72,9 +72,8 @@ if __name__ == "__main__":
 
         # 3.三大法人買賣超
         elif UserInput == "3":
-            StockLists = {
-                " Institutional_Investors": getInstitutional_TOP50(all_stock_info)
-            }
+            StockLists = {" Institutional_Investors": getInstitutional_TOP50(Database)}
+
         # 4. 參數更改
         elif UserInput == "4":
             parameter = ModifideParameter()
@@ -87,15 +86,14 @@ if __name__ == "__main__":
             print("Enter Error!!")
             input()
             continue
+
         for title, StockList in StockLists.items():
             print(title, StockList)
-            fw, cw, csvfile = ResultOutput(title)
+            fw, cw, csvfile = ResultOutput(new_result, title)
 
             # Get Data
             calculator(
-                finmind_token,
-                api,
-                all_stock_info,
+                Database,
                 StockList,
                 parameter,
                 fw,

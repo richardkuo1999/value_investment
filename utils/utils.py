@@ -1,5 +1,6 @@
 import os
 import csv
+import yaml
 import requests
 import numpy as np
 import pandas as pd
@@ -8,6 +9,10 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from googlesearch import search
 import plotly.graph_objects as go
+
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 
 def txt_read(file: Path) -> str:
@@ -299,3 +304,43 @@ def ModifideParameter() -> list:
         print(f"your Parameter: {Parameter}")
         input()
     return Parameter
+
+def Line_print(msg):
+    print(msg)
+    
+    with open('token.yaml', 'r') as file:
+        Token = yaml.safe_load(file)
+
+    url = 'https://notify-api.line.me/api/notify'
+    token = Token["LineToken"]
+    headers = {
+        'Authorization': 'Bearer ' + token
+    }
+    data = {
+        'message':msg
+    }
+    data = requests.post(url, headers=headers, data=data)
+
+
+def upload_files(folder_path, yamlToken, gdToken):
+
+    SCOPES = ["https://www.googleapis.com/auth/drive"]
+
+    # 建立憑證
+    creds = service_account.Credentials.from_service_account_file(
+        gdToken, scopes=SCOPES
+    )
+
+    # 串連服務
+    service = build("drive", "v3", credentials=creds)
+
+    for filename in folder_path.iterdir():
+        # print(filename)
+
+        file_metadata = {"name": filename.name, "parents": yamlToken[filename.parent.name]}
+        media = MediaFileUpload(filename)
+        file = (
+            service.files()
+            .create(body=file_metadata, media_body=media, fields="id")
+            .execute()
+        )

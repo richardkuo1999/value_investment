@@ -7,19 +7,15 @@ from utils.utils import txt_read
 
 
 class Finminder:
-    def __init__(self, TokenPath):
+    def __init__(self, Token):
         self.stock_number = None
         self.start_date = None
-        self.Token = self.Load_token(TokenPath)
+        self.Token = self.Load_token(Token)
         self.api = DataLoader()
         self.all_stock_info = self.Load_data(self.Token)
 
-    def Load_token(self, TokenPath: Path) -> str:
-        if not TokenPath.exists():
-            print("Put the token.txt")
-            exit()
-
-        return txt_read(TokenPath)
+    def Load_token(self, Token) -> str:
+        return Token["FinmindToken"]
 
     def Load_data(self, Token: str):
         self.api.login_by_token(api_token=Token)

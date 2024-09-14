@@ -1,13 +1,14 @@
+import os
+import yaml
 import shutil
 from termcolor import *
-import os
 from pathlib import Path
+from Database.finmind import Finminder
 
 
 from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
 from calculator.calculator import calculator
-from utils.utils import ResultOutput, ModifideParameter, Parameter_read
-from Database.finmind import Finminder
+from utils.utils import ModifideParameter, Parameter_read
 
 
 """
@@ -30,13 +31,15 @@ if __name__ == "__main__":
     TokenPath = Path("token.txt")
     ParameterPath = Path("Parameter.txt")
 
-    Database = Finminder(TokenPath)
+    with open("token.yaml", "r") as file:
+        Token = yaml.safe_load(file)
+
+    Database = Finminder(Token)
 
     # create folder
-    if not new_result.exists():
-        new_result.mkdir(parents=True, exist_ok=True)
-    else:
-        old_result.mkdir(parents=True, exist_ok=True)
+    new_result.mkdir(parents=True, exist_ok=True)
+    old_result.mkdir(parents=True, exist_ok=True)
+    if new_result.exists():
         for file in new_result.iterdir():
             file.rename((old_result / file.name))
 

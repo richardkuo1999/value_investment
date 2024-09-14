@@ -1,5 +1,6 @@
 results/
-token.txt
+token.yaml
+gdToken.json
 __pycache__
 .google-cookie
 Parameter.txt

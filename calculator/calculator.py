@@ -6,15 +6,11 @@ import datetime
 from bs4 import BeautifulSoup
 from sklearn.linear_model import LinearRegression
 
-from utils.utils import (
-    plotly_figure,
-    write2txt,
-    get_google_search_results,
-)
+from utils.utils import plotly_figure, get_google_search_results, ResultOutput
 
 
 class Stock_Predictor:
-    def __init__(self, Database, sn, parameter, fw=None):
+    def __init__(self, Database, sn, parameter):
         self.str_lst = []
         self.sel, self.level, self.year, self.EPS = parameter
         now_time = datetime.datetime.now()
@@ -24,7 +20,6 @@ class Stock_Predictor:
         self.warn_str = "Warning: These PER is calculated from date {}, you can modify the date to run again.".format(
             self.start_date
         )
-        self.fw = fw
         self.Database = Database
         self.Database.stock_number, self.Database.start_date = sn, self.start_date
 
@@ -37,7 +32,6 @@ class Stock_Predictor:
         return np.array(lst_per)
 
     def mean_reversion(self, line_num=5):
-        fw = self.fw
 
         prob_data = [0.001, 0.021, 0.136, 0.341, 0.341, 0.136, 0.021, 0.001]
         reg = LinearRegression()
@@ -81,60 +75,50 @@ class Stock_Predictor:
             df["TL+3SD"][-1] - price_now
         )
 
-        text_list = [
-            "均值回歸適合使用在穩定成長的股票上，如大盤or台積電等，高速成長及景氣循環股不適用，請小心服用。",
-            "偏離越多標準差越遠代表趨勢越強，請勿直接進場。",
-            "{} 往上的機率為: {}%, 維持在這個區間的機率為: {}%, 往下的機率為: {}%".format(
-                self.stock_number,
+        MReversion = [
+            [
                 round(up_prob * 100, 2),
                 round(hold_prob * 100, 2),
                 round(down_prob * 100, 2),
-            ),
-            "目前股價: {}, TL價: {}".format(price_now, round(TL, 2)),
-            "做多評估：",
-            "期望值為: {}, 期望報酬率為: {}% (保守計算: 上檔TL，下檔歸零)".format(
+            ],
+            [round(TL, 2), (TL - price_now) / price_now * 100],
+            [
                 round(expect_val_bull_1, 2),
                 round(expect_val_bull_1 / price_now * 100, 2),
-            ),
-            "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔TL，下檔-3SD)".format(
+            ],
+            [
                 round(expect_val_bull_2, 2),
                 round(expect_val_bull_2 / price_now * 100, 2),
-            ),
-            "做空評估: ",
-            "期望值為: {}, 期望報酬率為: {}% (樂觀計算: 上檔+3SD，下檔TL)".format(
+            ],
+            [
                 round(expect_val_bear_1, 2),
                 round(expect_val_bear_1 / price_now * 100, 2),
-            ),
+            ],
         ]
 
         # plotly_figure(self.stock_number, df, line_num, "close")
-        return price_now, text_list
+        return price_now, MReversion
 
     def get_EPS(self):
-        fw = self.fw
         stock_id = self.stock_number
-        estprice, eps, DateTime = self.crwal_estimate_eps()
+        estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
 
         if type(eps) != int and type(eps) != float:
-            write2txt(
-                "[ WRRNING ] 無法取得 Fectset EPS 評估報告，使用近四季EPS總和.", file=fw
-            )
             if self.EPS is not None:
                 eps = self.EPS
             else:
                 # 近四季EPS總和
                 lst_eps = self.Database.get_EPS()
                 eps = sum(lst_eps[-4:])
-        return estprice, eps, DateTime
+        return estprice, eps, DataTime, EPSeveryear
 
     def crwal_estimate_eps(self):
         sn = self.stock_number
         level = self.level
         offset = self.sel
         EPS = None
-        fw = self.fw
         estprice = -1
-        DateTime = ""
+        DataTime = ""
 
         # Get the cnyes news
         # search_str = f"factset eps cnyes {sn} tw"
@@ -161,7 +145,7 @@ class Stock_Predictor:
         # print(url_list)
 
         for i, url in enumerate(url_list):
-            DateTime = sorted_times[i]
+            DataTime = sorted_times[i]
             try:
                 result = requests.get(url)
                 soup = BeautifulSoup(result.text, "html.parser")
@@ -175,13 +159,11 @@ class Stock_Predictor:
                 except:
                     pass
 
-                res = []
-
                 rows = soup.table.find_all("tr")  # 提取表格的行
                 headers = [
                     header.get_text(strip=True) for header in rows[0].find_all("td")
                 ]  # 提取表頭
-                write2txt(headers, file=fw)
+                EPSeveryear = [headers]
 
                 # print(headers[0])
                 if headers[0] != "預估值":
@@ -191,21 +173,20 @@ class Stock_Predictor:
                 for row in rows[1:]:
                     cells = row.find_all("td")
                     row_data = [cell.get_text(strip=True) for cell in cells]
-                    res.append(row_data)
-                    write2txt(res[-1], file=fw)
+                    EPSeveryear.append(row_data)
 
                 year_str = str(datetime.date.today().year + offset)
                 for idx, s in enumerate(headers):
                     if year_str in s:
                         EPS = (
-                            float(res[self.level][idx].split("(")[0])
-                            + float(res[self.level][idx - 1].split("(")[0])
+                            float(EPSeveryear[self.level][idx].split("(")[0])
+                            + float(EPSeveryear[self.level][idx - 1].split("(")[0])
                         ) / 2
-                        return float(estprice), EPS, DateTime
+                        return (float(estprice), EPS, DataTime, EPSeveryear)
 
             except:
                 continue
-        return float(estprice), EPS, DateTime
+        return float(estprice), EPS, DataTime, None
 
     def per_std(self, line_num=5, fig=False):
         date_str = self.start_date
@@ -241,151 +222,83 @@ class Stock_Predictor:
         return (df, comp_list)
 
 
-def calculator(
-    Database,
-    StockList,
-    parameter,
-    fw=None,
-    cw=None,
-):
+def calculator(Database, StockList, parameter, result_path):
+    StockData = {"parameter": parameter}
     year = parameter[2]
-    split_str = "=" * 100
     for i, stock_id in enumerate(StockList, start=1):
         No = i
-        csvdata = [None] * 42
+        print(f"{No} / {len(StockList)}")
 
         Database.Check_limit()
 
         # 股票基本資訊
         StockName = Database.get_stock_info(stock_id, "stock_id", "stock_name")
-        stock_type = Database.get_stock_info(stock_id, "stock_id", "type")
-        Stock_item = Stock_Predictor(Database, stock_id, parameter, fw)
-
-        write2txt(split_str, file=fw)
-        print(f"{No}/{len(StockList)}")
-        write2txt(f"股票名稱: {StockName}", file=fw)
-        csvdata[0], csvdata[1], csvdata[2] = (
-            StockName,
-            str(stock_id),
-            f'=STOCK(CONCAT(B{No+1},"{".two" if stock_type=="tpex" else ".tw"}"))',
+        IPOtype = Database.get_stock_info(stock_id, "stock_id", "type")
+        industry_category = Database.get_stock_info(
+            stock_id, "stock_id", "industry_category"
         )
-        google_PriceGet = "".join(
-            [
-                '=IMPORTXML(CONCATENATE("https://tw.stock.yahoo.com/quote/",B{},".TWO"),'.format(
-                    No + 1
-                ),
-                '"//*[@id=""main-0-QuoteHeader-Proxy""]/div/div[2]/div[1]/div/span[1]")',
-            ]
-        )
-        # =======================================================================
+        Stock_item = Stock_Predictor(Database, stock_id, parameter)
 
-        # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps
-        write2txt(split_str, file=fw)
-
-        estprice, eps, DateTime = Stock_item.get_EPS()
-
-        write2txt(
-            "股票代號:\t{},\t\t估計EPS:\t{:.2f},\t\t歷史本益比參考年數:\t{}\n資料日期:\t{}".format(
-                stock_id, eps, year, DateTime
-            ),
-            file=fw,
-        )
-
-        csvdata[3], csvdata[4] = str(eps), str(year)
-        csvdata[41] = (str(DateTime).split(" ")[0]).replace("-", "/")
-        # =======================================================================
+        StockData[stock_id] = {
+            "Name": StockName,
+            "stock_id": stock_id,
+            "IPOtype": IPOtype,
+            "industry_category": industry_category,
+        }
 
         # Usage: stock_number, years
         # 使用均值回歸預測價格
-        write2txt(split_str, file=fw)
-        write2txt("計算股價均值回歸......\n", file=fw)
 
-        price_now, text_list = Stock_item.mean_reversion()
+        price_now, MReversion = Stock_item.mean_reversion()
 
-        for l in text_list:
-            write2txt(l, file=fw)
-        write2txt("\n現在股價為:\t{:.2f}".format(price_now), file=fw)
-        write2txt("未來本益比為:\t{:.2f}".format(price_now / eps), file=fw)
-        csvdata[40] = f"=C{No+1} / {eps}"
+        StockData[stock_id]["mean_reversion"] = MReversion
         # =======================================================================
+
+        # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps
+
+        FactsetESTprice, ESTeps, AnueDataTime, EPSeveryear = Stock_item.get_EPS()
+
+        StockData[stock_id].update(
+            {"price": price_now, "EPSeveryear": EPSeveryear},
+        )
 
         # 市場預估價
-        if estprice:
-            write2txt(split_str, file=fw)
-            write2txt("市場預估狀況\n", file=fw)
-            write2txt(
-                "市場預估價:\t{:.2f}\t\t推算潛在漲幅為:\t{:.2f}%".format(
-                    estprice, (estprice - price_now) / price_now * 100
-                ),
-                file=fw,
-            )
-        csvdata[38] = str(estprice)
-        csvdata[39] = f"=({estprice} - C{No+1}) / C{No+1} * 100" if estprice else "None"
+        StockData[stock_id]["Anue"] = {
+            "DataTime": str(AnueDataTime).split(" ")[0].replace("-", "/"),
+            "FactsetESTprice": [
+                FactsetESTprice,
+                (FactsetESTprice - price_now) / price_now * 100,
+            ],
+            "ESTeps": ESTeps,
+            "FuturePER": price_now / ESTeps,
+        }
         # =======================================================================
 
-        # Usage:   'api', stock_number, eps, year_number
+        # Usage:   'api', stock_number, ESTeps, year_number
         # 使用本益比四分位數預測股價
-        write2txt(split_str, file=fw)
-        write2txt("計算本益比四分位數與平均本益比......\n", file=fw)
 
         pe_list = Stock_item.get_PER()
 
-        uniformat = (
-            "本益比{}% 為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
-        )
-        for i in range(3):
+        StockData[stock_id]["ESTPER"] = []
+        for i in range(4):
             PE, Price, Rate = (
                 pe_list[i],
-                eps * pe_list[i],
-                (eps * pe_list[i] - price_now) / price_now * 100,
+                ESTeps * pe_list[i],
+                (ESTeps * pe_list[i] - price_now) / price_now * 100,
             )
-            write2txt(uniformat.format(25 * (i + 1), PE, Price, Rate), file=fw)
-            csvdata[5 + i * 3], csvdata[6 + i * 3], csvdata[7 + i * 3] = (
-                str(PE),
-                str(Price),
-                f"=({Price} - C{No+1}) / C{No+1} * 100",
-            )
-        uniformat = (
-            "本益比平均為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
-        )
-        PE, Price = pe_list[-1], eps * pe_list[-1]
-        write2txt(
-            uniformat.format(PE, Price, (Price - price_now) / price_now * 100),
-            file=fw,
-        )
-        csvdata[14], csvdata[15], csvdata[16] = (
-            str(PE),
-            str(Price),
-            f"=({Price} - C{No+1}) / C{No+1} * 100",
-        )
+            StockData[stock_id]["ESTPER"].append([PE, Price, Rate])
         # =======================================================================
 
-        # Usage: stock_number, eps, year
+        # Usage: stock_number, ESTeps, year
         # 利用本益比標準差預測股價
-        write2txt(split_str, file=fw)
-        uniformat = "{:<20} {:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
-        write2txt("計算本益比標準差......\n", file=fw)
 
         (df, comp_list) = Stock_item.per_std(fig=False)
-
+        StockData[stock_id]["SDESTPER"] = []
         for i, title in enumerate(comp_list):
-            PE, Price = df[title][-1], eps * df[title][-1]
-            write2txt(
-                uniformat.format(
-                    title, PE, Price, (Price - price_now) / price_now * 100
-                ),
-                file=fw,
+            PE, Price = df[title][-1], ESTeps * df[title][-1]
+            StockData[stock_id]["SDESTPER"].append(
+                [PE, Price, (Price - price_now) / price_now * 100]
             )
-            csvdata[17 + i * 3], csvdata[18 + i * 3], csvdata[19 + i * 3] = (
-                str(PE),
-                str(Price),
-                f"=({Price} - C{No+1}) / C{No+1} * 100",
-            )
-
-        if cw:
-            cw[0].writerow(csvdata)
-            csvdata[2] = google_PriceGet
-            cw[1].writerow(csvdata)
-
-        del Stock_item
+        ResultOutput(No, result_path, StockData[stock_id])
         # time.sleep(5)
+    return StockData

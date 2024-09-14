@@ -37,8 +37,6 @@ if __name__ == "__main__":
         new_result.mkdir(parents=True, exist_ok=True)
     else:
         old_result.mkdir(parents=True, exist_ok=True)
-        os.system("ls")
-        os.system("ls results")
         for file in new_result.iterdir():
             file.rename((old_result / file.name))
 
@@ -89,19 +87,8 @@ if __name__ == "__main__":
 
         for title, StockList in StockLists.items():
             print(title, StockList)
-            fw, cw, csvfile = ResultOutput(new_result, title)
 
             # Get Data
-            calculator(
-                Database,
-                StockList,
-                parameter,
-                fw,
-                cw,
-            )
-
-            fw.close()
-            csvfile[0].close()
-            csvfile[1].close()
+            calculator(Database, StockList, parameter, new_result / Path(title))
         print("Enter to continue...")
         input()

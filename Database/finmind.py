@@ -66,7 +66,7 @@ class Finminder:
         if (api_request_limit - user_count) <= 10:
             print(f"user_count/api_request_limit: {user_count}/{api_request_limit}")
             time.sleep(600)
-            self.Check_api_request_limit()
+            self.Check_limit()
 
     def get_EPS(self) -> list[float]:
         """get the EPS

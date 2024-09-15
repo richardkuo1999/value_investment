@@ -337,10 +337,7 @@ def upload_files(folder_path, yamlToken, gdToken):
     for filename in folder_path.iterdir():
         # print(filename)
 
-        file_metadata = {"name": filename.name, "parents": yamlToken[filename.parent.name]}
-        media = MediaFileUpload(filename)
-        file = (
-            service.files()
-            .create(body=file_metadata, media_body=media, fields="id")
-            .execute()
-        )
+        foldID = yamlToken[filename.parent.name]
+        media = MediaFileUpload(str(filename))
+        file = {"name": filename.name, "parents": [foldID]}
+        file_id = service.files().create(body=file, media_body=media).execute()

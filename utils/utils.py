@@ -20,7 +20,7 @@ def txt_read(file: Path) -> str:
     return txtdata
 
 
-default_Parameter = [1, 3, 4.5, None]
+default_Parameter = [3, 4.5, None]
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
@@ -252,22 +252,21 @@ def get_google_search_results(query, num_results=10):
 def Parameter_read(file):
     txtdata = txt_read(file).split("\n")
     try:
-        sel = int(txtdata[0])
-        level = int(txtdata[1])
-        year = float(txtdata[2])
-        e_eps = float(txtdata[3]) if txtdata[3].lower() != "none" else None
+        level = int(txtdata[0])
+        year = float(txtdata[1])
+        e_eps = float(txtdata[2]) if txtdata[2].lower() != "none" else None
     except:
-        sel, level, year, e_eps = default_Parameter
-    return [sel, level, year, e_eps]
+        level, year, e_eps = default_Parameter
+    return [level, year, e_eps]
 
 
 """
 parameter -> sel
-Description: EPS year
-# N: This year
-# 0: N + 0
-# 1: N + 1
-# 2: N + 2
+# Description: EPS year
+# # N: This year
+# # 0: N + 0
+# # 1: N + 1
+# # 2: N + 2
 
 parameter -> level
 Description: select forward eps value
@@ -277,7 +276,7 @@ Description: select forward eps value
 
 def ModifideParameter() -> list:
     msgList = [
-        "EPS year:  (default is 1)\nN: This year\n\t0: N + 0\n\t1: N + 1\n\t2: N + 2",
+        # "EPS year:  (default is 1)\nN: This year\n\t0: N + 0\n\t1: N + 1\n\t2: N + 2",
         "select forward eps value:  (default is 3)\n\t0: high\n\t1: low\n\t2: average\n\t3: medium",
         "Reference how many years: (default is 4.5)",
         "e_eps (default is None):",
@@ -286,7 +285,7 @@ def ModifideParameter() -> list:
 
     Parameter = []
     with open("Parameter.txt", "w") as pf:
-        for i in range(4):
+        for i in range(3):
             os.system("cls")
             print(msgList[i])
             UserInput = input("Input: ")

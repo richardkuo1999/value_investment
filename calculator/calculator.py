@@ -13,7 +13,7 @@ from utils.utils import plotly_figure, get_google_search_results, ResultOutput
 class Stock_Predictor:
     def __init__(self, Database, sn, parameter):
         self.str_lst = []
-        self.sel, self.level, self.year, self.EPS = parameter
+        self.level, self.year, self.EPS = parameter
         now_time = datetime.now()
         interval_time = now_time - timedelta(days=int(self.year * 360))
         self.start_date = interval_time.strftime("%Y-%m-%d")
@@ -116,7 +116,6 @@ class Stock_Predictor:
     def crwal_estimate_eps(self):
         sn = self.stock_number
         level = self.level
-        offset = self.sel
         EPS = None
         estprice = -1
         DataTime = ""
@@ -176,15 +175,14 @@ class Stock_Predictor:
                     row_data = [cell.get_text(strip=True) for cell in cells]
                     EPSeveryear.append(row_data)
 
-                year_str = str(datetime.now().year + offset)
+                year_str = str(datetime.now().year)
                 for idx, s in enumerate(headers):
                     if year_str in s:
-                        EPS = (
-                            float(EPSeveryear[self.level][idx].split("(")[0])
-                            + float(EPSeveryear[self.level][idx - 1].split("(")[0])
-                        ) / 2
+                        EPS = float(EPSeveryear[self.level][idx].split("(")[0])
+                        if datetime.now().month >= 6 and idx < len(headers) - 1:
+                            EPS += float(EPSeveryear[self.level][idx + 1].split("(")[0])
+                            EPS /= 2
                         return (float(estprice), EPS, DataTime, EPSeveryear)
-
             except:
                 continue
         return float(estprice), EPS, DataTime, None

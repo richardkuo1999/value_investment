@@ -176,7 +176,7 @@ class Stock_Predictor:
                     row_data = [cell.get_text(strip=True) for cell in cells]
                     EPSeveryear.append(row_data)
 
-                year_str = str(datetime.date.today().year + offset)
+                year_str = str(datetime.now().year + offset)
                 for idx, s in enumerate(headers):
                     if year_str in s:
                         EPS = (

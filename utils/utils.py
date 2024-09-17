@@ -211,7 +211,7 @@ def ResultOutput(No, result_path, StockData):
                             f'=(AR{No+1}/D{No+1}-1)*100'
 
 
-    with open(result_path.with_name(result_path.name + "_apple").with_suffix(".csv"), mode='a', newline='', encoding="utf-8") as file:
+    with open(result_path.with_name(result_path.stem + "_apple").with_suffix(".csv"), mode='a', newline='', encoding="utf-8") as file:
         writer = csv.writer(file)
         if No == 1:
             writer.writerow(rowtitle)
@@ -225,7 +225,7 @@ def ResultOutput(No, result_path, StockData):
                 '"//*[@id=""main-0-QuoteHeader-Proxy""]/div/div[2]/div[1]/div/span[1]")',
             ]
         )
-    with open(result_path.with_name(result_path.name + "_google").with_suffix(".csv"), mode='a', newline='', encoding="utf-8") as file:
+    with open(result_path.with_name(result_path.stem + "_google").with_suffix(".csv"), mode='a', newline='', encoding="utf-8") as file:
         writer = csv.writer(file)
         if No == 1:
             writer.writerow(rowtitle)

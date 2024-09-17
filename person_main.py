@@ -29,7 +29,7 @@ Description: select forward eps value
 
 if __name__ == "__main__":
     new_result = Path("results")
-    TokenPath = Path("token.txt")
+    # TokenPath = Path("token.txt")
     ParameterPath = Path("Parameter.txt")
 
     with open("token.yaml", "r") as file:

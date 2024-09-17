@@ -1,10 +1,12 @@
 import os
+import sys
 import yaml
 import shutil
 from termcolor import *
 from pathlib import Path
 from Database.finmind import Finminder
 
+sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
 from calculator.calculator import calculator
@@ -26,8 +28,7 @@ Description: select forward eps value
 
 
 if __name__ == "__main__":
-    old_result = Path("results", "last_result")
-    new_result = Path("results", "new_result")
+    new_result = Path("results")
     TokenPath = Path("token.txt")
     ParameterPath = Path("Parameter.txt")
 
@@ -38,10 +39,6 @@ if __name__ == "__main__":
 
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
-    old_result.mkdir(parents=True, exist_ok=True)
-    if new_result.exists():
-        for file in new_result.iterdir():
-            file.rename((old_result / file.name))
 
     # Read the caculate Parameter
     if ParameterPath.exists():

@@ -3,8 +3,6 @@ import requests
 from pathlib import Path
 from FinMind.data import DataLoader
 
-from utils.utils import txt_read
-
 
 class Finminder:
     def __init__(self, Token):

@@ -76,7 +76,7 @@ def ResultOutput(No, result_path, StockData):
         "樂觀做空報酬率：",
 # 16
         "估計EPS",
-        "預估本益比為",
+        "預估本益比",
         "Factest目標價",
         "Factest預估價潛在漲幅",
         "資料時間",
@@ -103,12 +103,12 @@ def ResultOutput(No, result_path, StockData):
         "TL+SD PE",
         "TL+SD價位",
         "TL+SD潛在漲幅",
-        "TL PE",
-        "TL價位",
-        "TL潛在漲幅",
+        "TL0SD PE",
+        "TL0SD價位",
+        "TL0SD潛在漲幅",
         "TL-SD PE",
-        "TLL-SD價位",
-        "TLL-SD潛在漲幅",
+        "TL-SD價位",
+        "TL-SD潛在漲幅",
         "TL-2SD PE",
         "TL-2SD價位",
         "TL-2SD潛在漲幅",
@@ -128,9 +128,9 @@ def ResultOutput(No, result_path, StockData):
                             StockData["industry_category"], StockData["price"], StockData["IPOtype"]
 
     write2txt("===========================================================================", fw)
-    write2txt("\033[1;32m計算股價均值回歸......\033[0m\n", fw)
-    write2txt("\033[1;31m均值回歸適合使用在穩定成長的股票上，如大盤or台積電等，高速成長及景氣循環股不適用，請小心服用。\033[0m", fw)
-    write2txt("\033[1;31m偏離越多標準差越遠代表趨勢越強，請勿直接進場。\033[0m\n\n", fw)
+    write2txt("計算股價均值回歸......\n", fw)
+    write2txt("均值回歸適合使用在穩定成長的股票上，如大盤or台積電等，高速成長及景氣循環股不適用，請小心服用。", fw)
+    write2txt("偏離越多標準差越遠代表趨勢越強，請勿直接進場。\n\n", fw)
 
     write2txt(f"{StockData["stock_id"]} 往上的機率為: {StockData["mean_reversion"][0][0]}%, 維持在這個區間的機率為: {StockData["mean_reversion"][0][1]}%, 往下的機率為: {StockData["mean_reversion"][0][2]}%\n", fw)
     write2txt(f"目前股價: {StockData["price"]}, TL價: {StockData["mean_reversion"][1][0]}, TL價潛在漲幅: {StockData["mean_reversion"][1][1]}", fw)
@@ -149,13 +149,13 @@ def ResultOutput(No, result_path, StockData):
                                                 StockData["mean_reversion"][4][1]
     
     write2txt("===========================================================================", fw)
-    write2txt("\033[1;32mFactest預估\033[0m", fw)
+    write2txt("Factest預估", fw)
     write2txt("", fw)
     if StockData["EPSeveryear"]:
         for line in StockData["EPSeveryear"]:
              write2txt(line, fw)
     else:
-        write2txt(f"\033[1;31m無法取得 Fectset EPS 評估報告，使用近四季EPS總和.\033[0m\n", fw)
+        write2txt(f"無法取得 Fectset EPS 評估報告，使用近四季EPS總和.\n", fw)
     write2txt(f"\n估計EPS: {StockData["Anue"]["ESTeps"]}  預估本益比：    {StockData["Anue"]["FuturePER"]}", fw)
     write2txt(f"Factest目標價: {StockData["Anue"]["FactsetESTprice"][0]}  推算潛在漲幅為:  {StockData["Anue"]["FactsetESTprice"][1]}", fw)
     write2txt(f"資料日期: {StockData["Anue"]["DataTime"]}  ", fw)
@@ -166,7 +166,7 @@ def ResultOutput(No, result_path, StockData):
                                                 StockData["Anue"]["FactsetESTprice"][1], StockData["Anue"]["DataTime"]
 
     write2txt("===========================================================================", fw)
-    write2txt("\033[1;32m計算本益比四分位數與平均本益比......\033[0m", fw)
+    write2txt("計算本益比四分位數與平均本益比......", fw)
     write2txt("", fw)
     uniformat = (
             "本益比{}% 為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
@@ -180,7 +180,7 @@ def ResultOutput(No, result_path, StockData):
 
     
     write2txt("===========================================================================", fw)
-    write2txt("\033[1;32m計算本益比標準差......\033[0m", fw)
+    write2txt("計算本益比標準差......", fw)
     write2txt("", fw)
     uniformat = "{:<20} {:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
     for i, title in enumerate(["+3","+2","+1","","-1","-2","-3"]):
@@ -337,7 +337,7 @@ def upload_files(folder_path, yamlToken, gdToken):
     for filename in folder_path.iterdir():
         # print(filename)
 
-        foldID = yamlToken[filename.parent.name]
+        foldID = yamlToken["new_result"]
         media = MediaFileUpload(str(filename))
         file = {"name": filename.name, "parents": [foldID]}
         file_id = service.files().create(body=file, media_body=media).execute()

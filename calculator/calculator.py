@@ -1,8 +1,9 @@
 import time
+import pytz
 import requests
 import statistics
 import numpy as np
-import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from sklearn.linear_model import LinearRegression
 
@@ -13,8 +14,8 @@ class Stock_Predictor:
     def __init__(self, Database, sn, parameter):
         self.str_lst = []
         self.sel, self.level, self.year, self.EPS = parameter
-        now_time = datetime.datetime.now()
-        interval_time = now_time - datetime.timedelta(days=int(self.year * 360))
+        now_time = datetime.now()
+        interval_time = now_time - timedelta(days=int(self.year * 360))
         self.start_date = interval_time.strftime("%Y-%m-%d")
         self.stock_number = sn
         self.warn_str = "Warning: These PER is calculated from date {}, you can modify the date to run again.".format(
@@ -133,7 +134,7 @@ class Stock_Predictor:
                 result = requests.get(url)
                 soup = BeautifulSoup(result.text, "html.parser")
                 webtime = soup.find(class_="alr4vq1").contents[-1]
-                webtime = datetime.datetime.strptime(webtime, "%Y-%m-%d %H:%M")
+                webtime = datetime.strptime(webtime, "%Y-%m-%d %H:%M")
                 time_dict[webtime] = url
                 # print(webtime, url)
             except:
@@ -225,6 +226,8 @@ class Stock_Predictor:
 def calculator(Database, StockList, parameter, result_path):
     StockData = {"parameter": parameter}
     year = parameter[2]
+    taiwan_tz = pytz.timezone("Asia/Taipei")
+    taiwan_time = datetime.now(taiwan_tz)
     for i, stock_id in enumerate(StockList, start=1):
         No = i
         print(f"{No} / {len(StockList)}")
@@ -244,6 +247,7 @@ def calculator(Database, StockList, parameter, result_path):
             "stock_id": stock_id,
             "IPOtype": IPOtype,
             "industry_category": industry_category,
+            "getTime": taiwan_time,
         }
 
         # Usage: stock_number, years

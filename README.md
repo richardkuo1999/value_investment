@@ -42,31 +42,19 @@ This project is used to calculate TW stock estimate value by getting **forward E
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See [deployment](#deployment) for notes on how to deploy the project on a live system.
 
-### Prerequisites
+### Installing
 
 What things you need to install the software and how to install them.
 
 ```
-Give examples
+git clone https://github.com/richardkuo1999/value_investment # clone
+cd value_investment
+pip install -r requirements.txt  # install
+...
+...
+...
+python person_main.py # execution
 ```
-
-### Installing
-
-A step by step series of examples that tell you how to get a development env running.
-
-Say what the step will be
-
-```
-Give the example
-```
-
-And repeat
-
-```
-until finished
-```
-
-End with an example of getting some data out of the system or using it for a little demo.
 
 ## 🔧 Running the tests <a name = "tests"></a>
 
@@ -105,9 +93,8 @@ Add additional notes about how to deploy this on a live system.
 
 ## ✍️ Authors <a name = "authors"></a>
 
-- [@kylelobo](https://github.com/kylelobo) - Idea & Initial work
-
-See also the list of [contributors](https://github.com/kylelobo/The-Documentation-Compendium/contributors) who participated in this project.
+- [@leisurecodog](https://github.com/leisurecodog) - Idea & Initial work.
+- [@richardkuo1999](https://github.com/richardkuo1999) - System modularized & server-based programmed contributor.
 
 ## 🎉 Acknowledgements <a name = "acknowledgement"></a>
 

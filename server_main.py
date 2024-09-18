@@ -46,11 +46,10 @@ def Individual_search(StockLists):
     return StockData
 
 
-def daily_run():
-    taiwan_tz = pytz.timezone("Asia/Taipei")
-    new_result = Path("results")
+def run():
     TokenPath = Path("token.yaml")
     ParameterPath = Path("Parameter.txt")
+    new_result = Path("results")
 
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
@@ -61,8 +60,26 @@ def daily_run():
 
     with open(TokenPath, "r") as file:
         Token = yaml.safe_load(file)
-
     Database = Finminder(Token)
+
+    StockLists = {"User_Choice": User_Choice}
+
+    for etf in ETFList:
+        StockLists[etf] = getETFConstituent(Database, etf)
+
+    for title, StockList in StockLists.items():
+        Line_print(f"Start Run\n{title}\n{StockList}")
+        # Get Data
+        calculator(Database, StockList, parameter, new_result / Path(title))
+
+    # upload_files(Path("results"), Token, "gdToken.json")
+    Line_print("Daily Run Finished")
+    # Line_print(f"Download from: https://drive.google.com/drive/u/0/folders/{Token["new_result"]}"
+    #             )
+
+
+def daily_run():
+    taiwan_tz = pytz.timezone("Asia/Taipei")
 
     while True:
         taiwan_time = datetime.now(taiwan_tz)
@@ -77,21 +94,7 @@ def daily_run():
         Line_print(f"Next run : {next_time_run}")
         time.sleep(remaining_time.total_seconds())
         Line_print(f"Start Daily Run")
-
-        StockLists = {"User_Choice": User_Choice}
-
-        for etf in ETFList:
-            StockLists[etf] = getETFConstituent(Database, etf)
-
-        for title, StockList in StockLists.items():
-            Line_print(f"Start Run\n{title}\n{StockList}")
-            # Get Data
-            calculator(Database, StockList, parameter, new_result / Path(title))
-
-        # upload_files(Path("results"), Token, "gdToken.json")
-        Line_print("Daily Run Finished")
-        # Line_print(f"Download from: https://drive.google.com/drive/u/0/folders/{Token["new_result"]}"
-        #             )
+        run()
 
 
 if __name__ == "__main__":

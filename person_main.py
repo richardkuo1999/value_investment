@@ -5,13 +5,7 @@ import shutil
 from termcolor import *
 from pathlib import Path
 from Database.finmind import Finminder
-
-sys.path.append(os.path.join(os.path.dirname(__file__)))
-
-from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
-from calculator.calculator import calculator
-from utils.utils import ModifideParameter, Parameter_read
-
+import argparse
 
 """
 parameter -> sel
@@ -26,11 +20,24 @@ Description: select forward eps value
 # 0: high, 1: low, 2: average, 3: medium
 """
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-sel",   type=int, default=1, help='Select EPS year, N: This year, 0: N+0, 1: N+1, 2: N+2')
+parser.add_argument("-level", type=int, default=3, help='Select forward eps value\n0: high, 1: low, 2: average, 3: medium')
+parser.add_argument("-year",  type=float, default=4.5, help="Data calculation length(unit:year)")
+parser.add_argument("-e_eps", type=float, default=None)
+
+args = parser.parse_args()
+
+sys.path.append(os.path.join(os.path.dirname(__file__)))
+
+from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
+from calculator.calculator import calculator
+from utils.utils import ModifideParameter, Parameter_read
+
+
 
 if __name__ == "__main__":
     new_result = Path("results")
-    # TokenPath = Path("token.txt")
-    ParameterPath = Path("Parameter.txt")
 
     with open("token.yaml", "r") as file:
         Token = yaml.safe_load(file)
@@ -41,15 +48,12 @@ if __name__ == "__main__":
     new_result.mkdir(parents=True, exist_ok=True)
 
     # Read the caculate Parameter
-    if ParameterPath.exists():
-        parameter = Parameter_read(ParameterPath)
-    else:
-        parameter = ModifideParameter()
+    parameter = [args.level, args.year, args.e_eps]
 
     while True:
         os.system("cls")
         UserInput = input(
-            "1. 查詢ETF成分股 \n2. 查詢個股 \n3. 三大法人買賣超 \n4. 參數更改 \n5. 退出 \n輸入: "
+            "1. 查詢ETF成分股 \n2. 查詢個股 \n3. 三大法人買賣超 \n4. 退出 \n輸入: "
         )
         StockLists = {}
 
@@ -72,12 +76,8 @@ if __name__ == "__main__":
         elif UserInput == "3":
             StockLists = {" Institutional_Investors": getInstitutional_TOP50(Database)}
 
-        # 4. 參數更改
+        # 4. 退出
         elif UserInput == "4":
-            parameter = ModifideParameter()
-
-        # 5. 退出
-        elif UserInput == "5":
             break
 
         else:

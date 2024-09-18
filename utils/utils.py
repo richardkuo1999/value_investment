@@ -318,7 +318,7 @@ def Line_print(msg):
     data = {
         'message':msg
     }
-    # data = requests.post(url, headers=headers, data=data)
+    data = requests.post(url, headers=headers, data=data)
 
 
 def upload_files(folder_path, yamlToken, gdToken):

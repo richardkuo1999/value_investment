@@ -206,9 +206,9 @@ def ResultOutput(No, result_path, StockData):
                             f'=(Z{No+1}/D{No+1}-1)*100', f'=(AC{No+1}/D{No+1}-1)*100', \
                             f'=(AF{No+1}/D{No+1}-1)*100'
     
-    csvdata[35], csvdata[38], csvdata[41], csvdata[44]= f'=(AI{No+1}/D{No+1}-1)*100' , \
-                            f'=(AL{No+1}/D{No+1}-1)*100', f'=(AO{No+1}/D{No+1}-1)*100', \
-                            f'=(AR{No+1}/D{No+1}-1)*100'
+    csvdata[35], csvdata[38], csvdata[41], csvdata[44], csvdata[47], csvdata[50], csvdata[53]= f'=(AI{No+1}/D{No+1}-1)*100', \
+                            f'=(AL{No+1}/D{No+1}-1)*100', f'=(AO{No+1}/D{No+1}-1)*100', f'=(AR{No+1}/D{No+1}-1)*100', \
+                            f'=(AU{No+1}/D{No+1}-1)*100', f'=(AX{No+1}/D{No+1}-1)*100', f'=(BA{No+1}/D{No+1}-1)*100'
 
 
     with open(result_path.with_name(result_path.stem + "_apple").with_suffix(".csv"), mode='a', newline='', encoding="utf-8") as file:

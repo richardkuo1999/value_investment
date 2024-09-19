@@ -54,6 +54,10 @@ def run():
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
 
+    for file in new_result.rglob("*"):
+        if file.is_file():
+            file.unlink()
+
     # Read the caculate Parameter
     if ParameterPath.exists():
         parameter = Parameter_read(ParameterPath)

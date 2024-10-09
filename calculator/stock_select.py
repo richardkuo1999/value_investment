@@ -4,7 +4,7 @@ from utils.utils import headers
 
 
 def getETFConstituent(Database, etf: str) -> list[str]:
-    url_template = "https://www.moneydj.com/ETF/X/Basic/Basic0007A.xdjhtm?etfid={}.TW"
+    url_template = "https://www.moneydj.com/ETF/X/Basic/Basic0007B.xdjhtm?etfid={}.TW"
 
     getList = []
 

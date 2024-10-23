@@ -103,14 +103,14 @@ class Stock_Predictor:
     def get_EPS(self):
         stock_id = self.stock_number
         estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
+        
+        if self.EPS is not None:
+            eps = self.EPS
 
         if type(eps) != int and type(eps) != float:
-            if self.EPS is not None:
-                eps = self.EPS
-            else:
-                # 近四季EPS總和
-                lst_eps = self.Database.get_EPS()
-                eps = sum(lst_eps[-4:])
+            # 近四季EPS總和
+            lst_eps = self.Database.get_EPS()
+            eps = sum(lst_eps[-4:])
         return estprice, eps, DataTime, EPSeveryear
 
     def crwal_estimate_eps(self):
@@ -221,7 +221,7 @@ class Stock_Predictor:
         return (df, comp_list)
 
 
-def calculator(Database, StockList, parameter, result_path):
+def calculator(Database, StockList, EPSLists, parameter, result_path):
     StockData = {"parameter": parameter}
     year = parameter[2]
     taiwan_tz = pytz.timezone("Asia/Taipei")
@@ -256,7 +256,9 @@ def calculator(Database, StockList, parameter, result_path):
         StockData[stock_id]["mean_reversion"] = MReversion
         # =======================================================================
 
-        # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps
+        # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps，或使用自己輸入的
+        if EPSLists and EPSLists[No-1]:
+            Stock_item.EPS = float(EPSLists[No-1])
 
         FactsetESTprice, ESTeps, AnueDataTime, EPSeveryear = Stock_item.get_EPS()
 

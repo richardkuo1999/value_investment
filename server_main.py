@@ -50,7 +50,7 @@ User_Choice = [
 # User_Choice = ["8069"]
 
 
-def Individual_search(StockLists):
+def Individual_search(StockLists, EPSLists):
 
     new_result = Path("results", "Individual")
     TokenPath = Path("token.yaml")
@@ -69,9 +69,8 @@ def Individual_search(StockLists):
     Database = Finminder(Token)
 
     # Get Data
-    StockData = calculator(
-        Database, StockLists, parameter, new_result / Path("Individual")
-    )
+    StockData = calculator(Database, StockLists, EPSLists,
+                            parameter, new_result / Path("Individual"))
 
     return StockData
 
@@ -101,10 +100,13 @@ def run():
     for etf in ETFList:
         StockLists[etf] = getETFConstituent(Database, etf)
 
+    EPSLists = []
+
     for title, StockList in StockLists.items():
         Line_print(f"Start Run\n{title}\n{StockList}")
         # Get Data
-        calculator(Database, StockList, parameter, new_result / Path(title))
+        calculator(Database, StockList, EPSLists, parameter, 
+                    new_result / Path(title))
 
     # upload_files(Path("results"), Token, "gdToken.json")
     Line_print("Daily Run Finished")

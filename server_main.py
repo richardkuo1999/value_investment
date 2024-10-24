@@ -3,6 +3,7 @@ import sys
 import pytz
 import time
 import yaml
+import argparse
 import threading
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -10,9 +11,24 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 from Database.finmind import Finminder
-from utils.utils import Parameter_read, Line_print, upload_files
+from utils.utils import Line_print, upload_files
 from calculator.calculator import calculator
 from calculator.stock_select import getETFConstituent
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-level",
+    type=int,
+    default=4,
+    help="Select forward eps value\n1: high, 2: low, 3: average, 4: medium",
+)
+parser.add_argument(
+    "-year", type=float, default=4.5, help="Data calculation length(unit:year)"
+)
+parser.add_argument("-e_eps", type=float, default=None)
+
+args = parser.parse_args()
 
 ETFList = ["0050", "006201", "0051"]
 # ETFList = []
@@ -60,8 +76,7 @@ def Individual_search(StockLists, EPSLists):
     new_result.mkdir(parents=True, exist_ok=True)
 
     # Read the caculate Parameter
-    if ParameterPath.exists():
-        parameter = Parameter_read(ParameterPath)
+    parameter = [args.level, args.year, args.e_eps]
 
     with open(TokenPath, "r") as file:
         Token = yaml.safe_load(file)
@@ -69,8 +84,9 @@ def Individual_search(StockLists, EPSLists):
     Database = Finminder(Token)
 
     # Get Data
-    StockData = calculator(Database, StockLists, EPSLists,
-                            parameter, new_result / Path("Individual"))
+    StockData = calculator(
+        Database, StockLists, EPSLists, parameter, new_result / Path("Individual")
+    )
 
     return StockData
 
@@ -88,8 +104,7 @@ def run():
             file.unlink()
 
     # Read the caculate Parameter
-    if ParameterPath.exists():
-        parameter = Parameter_read(ParameterPath)
+    parameter = [args.level, args.year, args.e_eps]
 
     with open(TokenPath, "r") as file:
         Token = yaml.safe_load(file)
@@ -105,8 +120,7 @@ def run():
     for title, StockList in StockLists.items():
         Line_print(f"Start Run\n{title}\n{StockList}")
         # Get Data
-        calculator(Database, StockList, EPSLists, parameter, 
-                    new_result / Path(title))
+        calculator(Database, StockList, EPSLists, parameter, new_result / Path(title))
 
     # upload_files(Path("results"), Token, "gdToken.json")
     Line_print("Daily Run Finished")

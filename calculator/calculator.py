@@ -103,7 +103,7 @@ class Stock_Predictor:
     def get_EPS(self):
         stock_id = self.stock_number
         estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
-        
+
         if self.EPS is not None:
             eps = self.EPS
 
@@ -119,6 +119,8 @@ class Stock_Predictor:
         EPS = None
         estprice = -1
         DataTime = ""
+        year_str = str(datetime.now().year)
+        month_float = float(datetime.now().month)
 
         # Get the cnyes news
         # search_str = f"factset eps cnyes {sn} tw"
@@ -175,13 +177,18 @@ class Stock_Predictor:
                     row_data = [cell.get_text(strip=True) for cell in cells]
                     EPSeveryear.append(row_data)
 
-                year_str = str(datetime.now().year)
                 for idx, s in enumerate(headers):
                     if year_str in s:
-                        EPS = float(EPSeveryear[self.level][idx].split("(")[0])
-                        if datetime.now().month >= 6 and idx < len(headers) - 1:
-                            EPS += float(EPSeveryear[self.level][idx + 1].split("(")[0])
-                            EPS /= 2
+                        ThisYearEPSest = float(EPSeveryear[level][idx].split("(")[0])
+                        if idx < len(headers) - 1:
+                            NextYearEPSest = float(
+                                EPSeveryear[level][idx + 1].split("(")[0]
+                            )
+                            EPS = (((12 - month_float) / 12) * ThisYearEPSest) + (
+                                (month_float / 12) * NextYearEPSest
+                            )
+                        else:
+                            EPS = ThisYearEPSest
                         return (float(estprice), EPS, DataTime, EPSeveryear)
             except:
                 continue
@@ -257,8 +264,8 @@ def calculator(Database, StockList, EPSLists, parameter, result_path):
         # =======================================================================
 
         # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps，或使用自己輸入的
-        if EPSLists and EPSLists[No-1]:
-            Stock_item.EPS = float(EPSLists[No-1])
+        if EPSLists and EPSLists[No - 1]:
+            Stock_item.EPS = float(EPSLists[No - 1])
 
         FactsetESTprice, ESTeps, AnueDataTime, EPSeveryear = Stock_item.get_EPS()
 

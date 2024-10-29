@@ -10,7 +10,12 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 from Database.finmind import Finminder
-from utils.utils import Parameter_read, Line_print, upload_files
+from utils.utils import (
+    Parameter_read,
+    Line_print,
+    UnderEST,
+    upload_files,
+)
 from calculator.calculator import calculator
 from calculator.stock_select import getETFConstituent
 
@@ -58,6 +63,9 @@ def Individual_search(StockLists, EPSLists):
 
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
+    for file in new_result.rglob("*"):
+        if file.is_file():
+            file.unlink()
 
     # Read the caculate Parameter
     if ParameterPath.exists():
@@ -69,8 +77,9 @@ def Individual_search(StockLists, EPSLists):
     Database = Finminder(Token)
 
     # Get Data
-    StockData = calculator(Database, StockLists, EPSLists,
-                            parameter, new_result / Path("Individual"))
+    StockData = calculator(
+        Database, StockLists, EPSLists, parameter, new_result / Path("Individual")
+    )
 
     return StockData
 
@@ -82,7 +91,6 @@ def run():
 
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
-
     for file in new_result.rglob("*"):
         if file.is_file():
             file.unlink()
@@ -101,15 +109,21 @@ def run():
         StockLists[etf] = getETFConstituent(Database, etf)
 
     EPSLists = []
+    UndersESTList = []
 
     for title, StockList in StockLists.items():
         Line_print(f"Start Run\n{title}\n{StockList}")
         # Get Data
-        calculator(Database, StockList, EPSLists, parameter, 
-                    new_result / Path(title))
+        StockDatas = calculator(
+            Database, StockList, EPSLists, parameter, new_result / Path(title)
+        )
+
+        UndersESTList.extend(UnderEST.getUnderstimated(StockDatas))
+    UnderEST.saveUnderstimated(UndersESTList, new_result / Path("Understimated"))
 
     # upload_files(Path("results"), Token, "gdToken.json")
     Line_print("Daily Run Finished")
+    UnderEST.NoticeUndersEST(UndersESTList)
     # Line_print(f"Download from: https://drive.google.com/drive/u/0/folders/{Token["new_result"]}"
     #             )
 

@@ -14,10 +14,11 @@ from utils.utils import (
     Parameter_read,
     Line_print,
     UnderEST,
+    ResultOutput,
     upload_files,
 )
 from calculator.calculator import calculator
-from calculator.stock_select import getETFConstituent
+from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
 
 ETFList = ["0050", "006201", "0051"]
 # ETFList = []
@@ -29,7 +30,6 @@ User_Choice = [
     "5236",
     "6271",
     "8936",
-    "3167",
     "6937",
     "4739",
     "2467",
@@ -77,11 +77,31 @@ def Individual_search(StockLists, EPSLists):
     Database = Finminder(Token)
 
     # Get Data
-    StockData = calculator(
-        Database, StockLists, EPSLists, parameter, new_result / Path("Individual")
-    )
+    StockDatas = calculator(Database, StockLists, EPSLists, parameter)
+    ResultOutput(new_result / Path("Individual"), StockDatas)
 
-    return StockData
+    return StockDatas
+
+
+def getInstitutional(Database, StockDatas_dict, parameter):
+    EPSLists = []
+
+    StockList = getInstitutional_TOP50()
+    Line_print(f"Start Run\nInstitutional_TOP50\n{StockList}")
+
+    isGetList = StockDatas_dict.keys()
+    temp = {}
+    notGetList = []
+    for stockID in StockList:
+        if stockID in isGetList:
+            temp.update({stockID: StockDatas_dict[stockID]})
+        else:
+            notGetList.append(stockID)
+    # Get Data
+    StockDatas = calculator(Database, notGetList, EPSLists, parameter)
+    StockDatas.update(temp)
+
+    return StockDatas
 
 
 def run():
@@ -109,17 +129,27 @@ def run():
         StockLists[etf] = getETFConstituent(Database, etf)
 
     EPSLists = []
-    UndersESTList = []
+    StockDatas_dict = {}
 
     for title, StockList in StockLists.items():
         Line_print(f"Start Run\n{title}\n{StockList}")
         # Get Data
         StockDatas = calculator(
-            Database, StockList, EPSLists, parameter, new_result / Path(title)
+            Database,
+            StockList,
+            EPSLists,
+            parameter,
         )
+        ResultOutput(new_result / Path(title), StockDatas)
+        StockDatas_dict.update(StockDatas)
 
-        UndersESTList.extend(UnderEST.getUnderstimated(StockDatas))
-    UnderEST.saveUnderstimated(UndersESTList, new_result / Path("Understimated"))
+    # get Understimated
+    UndersESTList = UnderEST.getUnderstimated(StockDatas_dict)
+    ResultOutput(new_result / Path("Understimated"), UndersESTList)
+
+    # get Institutional
+    InstitutionalDatas = getInstitutional(Database, StockDatas_dict, parameter)
+    ResultOutput(new_result / Path("Institutional_TOP50"), InstitutionalDatas)
 
     # upload_files(Path("results"), Token, "gdToken.json")
     Line_print("Daily Run Finished")

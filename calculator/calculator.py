@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from sklearn.linear_model import LinearRegression
 
-from utils.utils import plotly_figure, get_google_search_results, ResultOutput
+from utils.utils import plotly_figure, get_google_search_results
 
 
 class Stock_Predictor:
@@ -228,7 +228,7 @@ class Stock_Predictor:
         return (df, comp_list)
 
 
-def calculator(Database, StockList, EPSLists, parameter, result_path):
+def calculator(Database, StockList, EPSLists, parameter):
     StockData = {"parameter": parameter}
     year = parameter[2]
     taiwan_tz = pytz.timezone("Asia/Taipei")
@@ -310,6 +310,5 @@ def calculator(Database, StockList, EPSLists, parameter, result_path):
             StockData[stock_id]["SDESTPER"].append(
                 [PE, Price, (Price - price_now) / price_now * 100]
             )
-        ResultOutput(No, result_path, StockData[stock_id])
         # time.sleep(5)
     return StockData

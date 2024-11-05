@@ -467,18 +467,20 @@ def upload_files(folder_path, yamlToken, gdToken):
 class UnderEST:
     @staticmethod
     def getUnderstimated(StockData):
-        UndersESTList = {}
+        UndersESTDict = {"test":0}
         for index, (StockID, StockData) in enumerate(StockData.items()):
             if not isOrdinaryStock(StockID):
                 continue
             if float(StockData["SDESTPER"][4][2]) > 0.0:
-                UndersESTList.update({StockID: StockData})
-        return UndersESTList
+                UndersESTDict.update({StockID: StockData})
+        return UndersESTDict
 
     @staticmethod
-    def NoticeUndersEST(UndersESTList):
+    def NoticeUndersEST(UndersESTDict):
         msg = "Under Stimated\n"
-        for StockData in UndersESTList:
+        for No, (StockID, StockData) in enumerate(UndersESTDict.items(), start=0):
+            if No == 0:
+                continue
             msg += f'{StockData["stock_id"]}{StockData["Name"]}: {StockData["SDESTPER"][4][2]:.1f}%\n'
         Line_print(msg)
         return msg

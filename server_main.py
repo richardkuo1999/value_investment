@@ -144,8 +144,8 @@ def run():
         StockDatas_dict.update(StockDatas)
 
     # get Understimated
-    UndersESTList = UnderEST.getUnderstimated(StockDatas_dict)
-    ResultOutput(new_result / Path("Understimated"), UndersESTList)
+    UndersESTDict = UnderEST.getUnderstimated(StockDatas_dict)
+    ResultOutput(new_result / Path("Understimated"), UndersESTDict)
 
     # get Institutional
     InstitutionalDatas = getInstitutional(Database, StockDatas_dict, parameter)
@@ -153,7 +153,7 @@ def run():
 
     # upload_files(Path("results"), Token, "gdToken.json")
     Line_print("Daily Run Finished")
-    UnderEST.NoticeUndersEST(UndersESTList)
+    UnderEST.NoticeUndersEST(UndersESTDict)
     # Line_print(f"Download from: https://drive.google.com/drive/u/0/folders/{Token["new_result"]}"
     #             )
 

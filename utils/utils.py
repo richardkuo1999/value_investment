@@ -476,7 +476,7 @@ class UnderEST:
         return UndersESTDict
 
     @staticmethod
-    def NoticeUndersEST(UndersESTDict):
+    def NotifyUndersEST(UndersESTDict):
         msg = "Under Stimated\n"
         for No, (StockID, StockData) in enumerate(UndersESTDict.items(), start=0):
             if No == 0:

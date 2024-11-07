@@ -18,6 +18,7 @@ from utils.utils import (
     upload_files,
 )
 from calculator.calculator import calculator
+from calculator.Index import NotifyCnnFearGreedIndex
 from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
 
 ETFList = ["0050", "006201", "0051"]
@@ -132,7 +133,7 @@ def run():
     StockDatas_dict = {}
 
     for title, StockList in StockLists.items():
-        Line_print(f"Start Run\n{title}\n{StockList}")
+        Line_print(f"Start Run\n{title}")
         # Get Data
         StockDatas = calculator(
             Database,
@@ -151,11 +152,9 @@ def run():
     InstitutionalDatas = getInstitutional(Database, StockDatas_dict, parameter)
     ResultOutput(new_result / Path("Institutional_TOP50"), InstitutionalDatas)
 
-    # upload_files(Path("results"), Token, "gdToken.json")
     Line_print("Daily Run Finished")
-    UnderEST.NoticeUndersEST(UndersESTDict)
-    # Line_print(f"Download from: https://drive.google.com/drive/u/0/folders/{Token["new_result"]}"
-    #             )
+    UnderEST.NotifyUndersEST(UndersESTDict)
+    NotifyCnnFearGreedIndex(Database)
 
 
 def daily_run():
@@ -178,7 +177,12 @@ def daily_run():
 
 
 if __name__ == "__main__":
-    daily_run()
+    # daily_run()
+    TokenPath = Path("token.yaml")
+    with open(TokenPath, "r") as file:
+        Token = yaml.safe_load(file)
+    Database = Finminder(Token)
 
+    NotifyCnnFearGreedIndex(Database)
     # thread1 = threading.Thread(target=print_numbers, args=("Thread-1", 1))  # 每秒打印一次數字
     # thread2 = threading.Thread(target=print_numbers, args=("Thread-2", 2))  # 每兩秒打印一次數字

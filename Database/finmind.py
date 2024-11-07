@@ -10,15 +10,19 @@ class Finminder:
         self.start_date = None
         self.Token = self.Load_token(Token)
         self.api = DataLoader()
-        self.all_stock_info = self.Load_data(self.Token)
+        self.all_stock_info = self.Load_data()
 
     def Load_token(self, Token) -> str:
         return Token["FinmindToken"]
 
-    def Load_data(self, Token: str):
-        self.api.login_by_token(api_token=Token)
+    def Load_data(self):
+        self.api.login_by_token(api_token=self.Token)
 
         return self.api.taiwan_stock_info()
+
+    def getCnnFearGreedIndex(self, start_date, end_date):
+        self.api.login_by_token(api_token=self.Token)
+        return self.api.Cnn_Fear_Greed_Index(start_date, end_date)
 
     def get_stock_info(self, stock_id: str, tag1: str, tag2: str) -> str:
         """get the stock info according to tag2

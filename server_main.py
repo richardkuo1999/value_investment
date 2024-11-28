@@ -86,7 +86,7 @@ def getInstitutional(Database, StockDatas_dict, parameter):
     EPSLists = []
 
     StockList = getInstitutional_TOP50()
-    Line_print(f"Start Run\nInstitutional_TOP50\n{StockList}")
+    Line_print(f"Start Run\nInstitutional_TOP50")
 
     isGetList = StockDatas_dict.keys()
     temp = {}
@@ -175,12 +175,7 @@ def daily_run():
 
 
 if __name__ == "__main__":
+    pass
     # daily_run()
-    TokenPath = Path("token.yaml")
-    with open(TokenPath, "r") as file:
-        Token = yaml.safe_load(file)
-    Database = Finminder(Token)
-
-    NotifyCnnFearGreedIndex(Database)
     # thread1 = threading.Thread(target=print_numbers, args=("Thread-1", 1))  # 每秒打印一次數字
     # thread2 = threading.Thread(target=print_numbers, args=("Thread-2", 2))  # 每兩秒打印一次數字

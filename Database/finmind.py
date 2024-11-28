@@ -5,18 +5,35 @@ from FinMind.data import DataLoader
 
 
 class Finminder:
-    def __init__(self, Token):
+    def __init__(self, allToken):
+        self.TokenUSE = 0
         self.stock_number = None
         self.start_date = None
-        self.Token = self.Load_token(Token)
+        self.TokenList = allToken["FinmindToken"]
         self.api = DataLoader()
-        self.all_stock_info = self.Load_data()
+        self.Login()
 
-    def Load_token(self, Token) -> str:
-        return Token["FinmindToken"]
+    def get_efficient_token(self) -> str:
+        Token = self.TokenList[self.TokenUSE]
 
-    def Load_data(self):
-        self.api.login_by_token(api_token=self.Token)
+        resp = requests.get(
+            "https://api.web.finmindtrade.com/v2/user_info",
+            params={"token": Token},
+        )
+        api_request_limit = resp.json()["api_request_limit"]
+        user_count = resp.json()["user_count"]
+        if (api_request_limit - user_count) <= 50:
+            print(
+                f"{self.TokenUSE+1}: user_count/api_request_limit: {user_count}/{api_request_limit}"
+            )
+            self.TokenUSE += 1
+            self.TokenUSE %= len(self.TokenList)
+            self.get_efficient_token()
+        return Token
+
+    def Login(self):
+        Token = self.get_efficient_token()
+        self.api.login_by_token(api_token=Token)
 
     def taiwan_stock_info(self):
         return self.api.taiwan_stock_info()
@@ -62,19 +79,6 @@ class Finminder:
             except:
                 pass
         return stock_list
-
-    def Check_limit(self):
-        """if api have times limit use this"""
-        resp = requests.get(
-            "https://api.web.finmindtrade.com/v2/user_info",
-            params={"token": self.Token},
-        )
-        api_request_limit = resp.json()["api_request_limit"]
-        user_count = resp.json()["user_count"]
-        if (api_request_limit - user_count) <= 10:
-            print(f"user_count/api_request_limit: {user_count}/{api_request_limit}")
-            time.sleep(600)
-            self.Check_limit()
 
     def get_EPS(self) -> list[float]:
         """get the EPS

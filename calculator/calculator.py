@@ -237,7 +237,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         No = i
         print(f"{No} / {len(StockList)}")
 
-        Database.Check_limit()
+        Database.Login()
 
         # 股票基本資訊
         StockName = Database.get_stock_info(stock_id, "stock_id", "stock_name")

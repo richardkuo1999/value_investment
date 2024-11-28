@@ -35,7 +35,7 @@ class Finminder:
         Token = self.get_efficient_token()
         self.api.login_by_token(api_token=Token)
 
-    def taiwan_stock_info(self):
+    def get_taiwan_stock_info(self):
         return self.api.taiwan_stock_info()
 
     def getCnnFearGreedIndex(self, start_date):
@@ -58,7 +58,7 @@ class Finminder:
         Returns:
             str: according to yout tag2 what you want to get
         """
-        taiwan_stock_info = self.taiwan_stock_info
+        taiwan_stock_info = self.get_taiwan_stock_info()
         return taiwan_stock_info.loc[taiwan_stock_info[tag1] == stock_id].iloc[0][tag2]
 
     def get_stockID(self, getList: list[str]) -> list[str]:

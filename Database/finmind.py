@@ -18,10 +18,11 @@ class Finminder:
     def Load_data(self):
         self.api.login_by_token(api_token=self.Token)
 
+    def taiwan_stock_info(self):
         return self.api.taiwan_stock_info()
 
     def getCnnFearGreedIndex(self, start_date):
-        return self.api.Cnn_Fear_Greed_Index(start_date)
+        return self.api.cnn_fear_greed_index(start_date)
 
     def get_taiwan_option_daily(self, option_id, start_date):
         return self.api.taiwan_option_daily(option_id, start_date)
@@ -40,8 +41,8 @@ class Finminder:
         Returns:
             str: according to yout tag2 what you want to get
         """
-        all_stock_info = self.all_stock_info
-        return all_stock_info.loc[all_stock_info[tag1] == stock_id].iloc[0][tag2]
+        taiwan_stock_info = self.taiwan_stock_info
+        return taiwan_stock_info.loc[taiwan_stock_info[tag1] == stock_id].iloc[0][tag2]
 
     def get_stockID(self, getList: list[str]) -> list[str]:
         """stock name to stock number

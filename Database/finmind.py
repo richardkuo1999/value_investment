@@ -23,6 +23,12 @@ class Finminder:
     def getCnnFearGreedIndex(self, start_date):
         return self.api.Cnn_Fear_Greed_Index(start_date)
 
+    def get_taiwan_option_daily(self, option_id, start_date):
+        return self.api.taiwan_option_daily(option_id, start_date)
+
+    def Get_TAIEX(self, start_date):
+        return self.api.tse(start_date)
+
     def get_stock_info(self, stock_id: str, tag1: str, tag2: str) -> str:
         """get the stock info according to tag2
 

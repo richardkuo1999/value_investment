@@ -19,7 +19,7 @@ from utils.utils import (
 )
 from calculator.calculator import calculator
 from calculator.Index import NotifyCnnFearGreedIndex, NotifyOptionSupportPressure
-from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
+from calculator.stock_select import get_etf_constituents, get_institutional_top50
 
 ETFList = ["0050", "006201", "0051"]
 # ETFList = []
@@ -85,7 +85,7 @@ def Individual_search(StockLists, EPSLists):
 def getInstitutional(Database, StockDatas_dict, parameter):
     EPSLists = []
 
-    StockList = getInstitutional_TOP50()
+    StockList = get_institutional_top50()
     Line_print(f"Start Run\nInstitutional_TOP50")
 
     isGetList = StockDatas_dict.keys()
@@ -125,7 +125,7 @@ def run():
     StockLists = {"User_Choice": User_Choice}
 
     for etf in ETFList:
-        StockLists[etf] = getETFConstituent(Database, etf)
+        StockLists[etf] = get_etf_constituents(etf)
 
     EPSLists = []
     StockDatas_dict = {}

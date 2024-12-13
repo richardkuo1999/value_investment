@@ -1,13 +1,11 @@
 import time
 import pytz
-import requests
 import statistics
 import numpy as np
 from datetime import datetime, timedelta
-from bs4 import BeautifulSoup
 from sklearn.linear_model import LinearRegression
 
-from utils.utils import plotly_figure, get_search_results
+from utils.utils import get_search_results, fetch_webpage
 
 
 class Stock_Predictor:
@@ -140,8 +138,7 @@ class Stock_Predictor:
         urldata = []
         for url in url_list:
             try:
-                result = requests.get(url)
-                soup = BeautifulSoup(result.text, "html.parser")
+                soup = fetch_webpage(url)
                 webtime = soup.find(class_="alr4vq1").contents[-1]
                 webtime = datetime.strptime(webtime, "%Y-%m-%d %H:%M")
                 urldata.append({"date": webtime, "url": url})
@@ -155,8 +152,7 @@ class Stock_Predictor:
             try:
                 DataTime, url = timeurl["date"], timeurl["url"]
                 print(DataTime, ":", url)
-                result = requests.get(url)
-                soup = BeautifulSoup(result.text, "html.parser")
+                soup = fetch_webpage(url)
                 webtitle = soup.find(id="article-container").text
 
                 if webtitle.split("(")[1].split("-")[0] != str(stock_id):

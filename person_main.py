@@ -44,7 +44,7 @@ args = parser.parse_args()
 
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
-from calculator.stock_select import getETFConstituent, getInstitutional_TOP50
+from calculator.stock_select import get_etf_constituents, get_institutional_top50
 from calculator.calculator import calculator
 from utils.utils import ModifideParameter, Parameter_read
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
             elif UserInput == "2":
                 ETFList = input("請用空格隔開: ").split(" ")
             for etf in ETFList:
-                StockLists[etf] = getETFConstituent(Database, etf)
+                StockLists[etf] = get_etf_constituents(etf)
 
         # 2. 查詢個股
         elif UserInput == "2":
@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
         # 3.三大法人買賣超
         elif UserInput == "3":
-            StockLists = {" Institutional_Investors": getInstitutional_TOP50()}
+            StockLists = {" Institutional_Investors": get_institutional_top50()}
 
         # 4. 退出
         elif UserInput == "4":

@@ -32,6 +32,11 @@ def write2txt(msg, filepath=None):
         file.write(f"{msg}\n")
     print(msg)
 
+def fetch_webpage(url: str) -> BeautifulSoup:
+    """Fetch and parse webpage content"""
+    response = requests.get(url, headers=headers)
+    response.encoding = "utf-8"
+    return BeautifulSoup(response.text, "html5lib")
 
 def ResultOutput(result_path, StockDatas):
     rowtitle = [
@@ -338,26 +343,23 @@ def ResultOutput(result_path, StockDatas):
 def get_search_results(query, num_results=10):
     search_results = []
     # url = f"https://www.google.com/search?q={query}&num={num_results}"
-    # response = requests.get(url, headers=headers)
-    # if response.status_code == 200:
-    #     soup = BeautifulSoup(response.text, "html.parser")
-    #     search_results.extend(
-    #         [data.find("a")["href"] for data in soup.find_all("div", class_="g")]
-    #     )
-    # elif response.status_code == 429:
-    #     raise ("429 Too Many Requests")
+    url = f"https://tw.search.yahoo.com/search?p={query}&fr=yfp-search-sb"
+    soup = fetch_webpage(url)
 
+    # For Google engine 1
+    # search_results.extend(
+    #     [data.find("a")["href"] for data in soup.find_all("div", class_="g")]
+    # )
+
+    # For Google engine 2
     # search_results = search(query, stop=num_results, pause=2.0)
 
-    url = f"https://tw.search.yahoo.com/search?p={query}&fr=yfp-search-sb"
-    response = requests.get(url, headers=headers)
-    response.encoding = "utf-8"
-    soup = BeautifulSoup(response.text, "html.parser")
-
+    # For Yahoo engine
     for i in (soup.find_all("div", id="left")[0]).find_all("a"):
         url = i["href"]
         if "https%3a%2f%2fnews.cnyes.com%2fnews%2fid%2f" in url:
             search_results.append(unquote(url.split("/RK=")[0].split("RU=")[1]))
+
     return search_results
 
 

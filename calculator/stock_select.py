@@ -1,46 +1,30 @@
-import requests
-from bs4 import BeautifulSoup
-from utils.utils import headers, isOrdinaryStock
+import re
+from natsort import natsorted
+from utils.utils import fetch_webpage, isOrdinaryStock
 
 
-def getETFConstituent(Database, etf: str) -> list[str]:
-    url_template = "https://www.moneydj.com/ETF/X/Basic/Basic0007B.xdjhtm?etfid={}.TW"
-
-    getList = []
-
-    url = url_template.format(etf)
-
-    result = requests.get(url, headers=headers)
-    result.encoding = "utf-8"
-    soup = BeautifulSoup(result.text, "html5lib")
-    data = soup.find_all("td", class_="col05")
-    for _, name in enumerate(data):
-        getList.append(name.text)
-
-    return Database.get_stockID(getList)
-
-
-def getInstitutional_TOP50() -> list[str]:
-
-    getList = []
-
-    # 外資買賣超、投信買賣超、自營商買賣超
-    buy_list = [
-        "https://histock.tw/stock/three.aspx?s=a",
-        "https://histock.tw/stock/three.aspx?s=b",
-        "https://histock.tw/stock/three.aspx?s=c",
+def get_etf_constituents(etf_id: str) -> list[str]:
+    """Get constituent stocks of an ETF"""
+    url = f"https://www.moneydj.com/ETF/X/Basic/Basic0007B.xdjhtm?etfid={etf_id}.TW"
+    soup = fetch_webpage(url)
+    stock_id = [
+        (re.search(r"etfid=(\d+)\.", a["href"]))[1] for a in soup.select("td.col05 a")
     ]
 
-    for _, link in enumerate(buy_list):
-        url = link
-        result = requests.get(url, headers=headers)
-        result.encoding = "utf-8"
-        soup = BeautifulSoup(result.text, "html5lib")
-        data = []
+    return natsorted(stock_id)
 
-        data = soup.find_all("span", class_="w58")[::6]
 
-        for _, name in enumerate(data):
-            if isOrdinaryStock(name.text):
-                getList.append(name.text)
-    return list(set(getList))
+def get_institutional_top50() -> list[str]:
+    """Get top 50 stocks by institutional investors"""
+    base_url = "https://histock.tw/stock/three.aspx?s={}"
+    # a: foreign, b: investment trust, c: dealers
+    investor_types = ["a", "b", "c"]
+
+    all_stocks = []
+    for investor_type in investor_types:
+        soup = fetch_webpage(base_url.format(investor_type))
+        stock_elements = soup.find_all("span", class_="w58")[::6]
+        stocks = [name.text for name in stock_elements if isOrdinaryStock(name.text)]
+        all_stocks.extend(stocks)
+
+    return natsorted(list(set(all_stocks)))

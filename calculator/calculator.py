@@ -7,22 +7,25 @@ from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from sklearn.linear_model import LinearRegression
 
-from utils.utils import plotly_figure, get_google_search_results
+from utils.utils import plotly_figure, get_search_results
 
 
 class Stock_Predictor:
-    def __init__(self, Database, sn, parameter):
+    def __init__(self, Database, stock, parameter):
         self.str_lst = []
         self.level, self.year, self.EPS = parameter
         now_time = datetime.now()
         interval_time = now_time - timedelta(days=int(self.year * 360))
         self.start_date = interval_time.strftime("%Y-%m-%d")
-        self.stock_number = sn
+        self.stock_id, self.stock_name = stock
         self.warn_str = "Warning: These PER is calculated from date {}, you can modify the date to run again.".format(
             self.start_date
         )
         self.Database = Database
-        self.Database.stock_number, self.Database.start_date = sn, self.start_date
+        self.Database.stock_number, self.Database.start_date = (
+            self.stock_id,
+            self.start_date,
+        )
 
     def get_PER(self):
         lst_per = []
@@ -97,13 +100,13 @@ class Stock_Predictor:
             ],
         ]
 
-        # plotly_figure(self.stock_number, df, line_num, "close")
+        # plotly_figure(self.stock_id, df, line_num, "close")
         return price_now, MReversion
 
     def get_EPS(self):
-        stock_id = self.stock_number
+        stock_id = self.stock_id
         estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
-
+        # estprice, eps, DataTime, EPSeveryear = -1,None,None,None
         if self.EPS is not None:
             eps = self.EPS
 
@@ -114,7 +117,7 @@ class Stock_Predictor:
         return estprice, eps, DataTime, EPSeveryear
 
     def crwal_estimate_eps(self):
-        sn = self.stock_number
+        stock_id, StockName = self.stock_id, self.stock_name
         level = self.level
         EPS = None
         estprice = -1
@@ -123,37 +126,41 @@ class Stock_Predictor:
         month_float = float(datetime.now().month)
 
         # Get the cnyes news
-        # search_str = f"factset eps cnyes {sn} tw"
-        search_str = f'factset eps cnyes {sn} tw site:https://cnyes.com/ AND intitle:"{sn}" AND intitle:"factset"'
+        # search_str = f'factset eps cnyes {stock_id} tw site:news.cnyes.com AND intitle:"{stock_id}" AND intitle:"factset"'
+        # search_str = f'"鉅亨速報 - Factset 最新調查："{StockName}({stock_id}-TW)"EPS預估" site:news.cnyes.com'
+        search_str = f"鉅亨速報 - Factset 最新調查：{StockName}({stock_id}-TW)EPS預估+site:news.cnyes.com"
         # print(search_str)
-        url_list = get_google_search_results(search_str, 20)
+        search_results = get_search_results(search_str, 10)
+        # print(search_results)
+
+        url_list = [
+            j.replace("print", "id") for j in search_results if "cnyes.com" in j
+        ]
         # print(url_list)
 
-        time_dict = {}
+        urldata = []
         for url in url_list:
             try:
                 result = requests.get(url)
                 soup = BeautifulSoup(result.text, "html.parser")
                 webtime = soup.find(class_="alr4vq1").contents[-1]
                 webtime = datetime.strptime(webtime, "%Y-%m-%d %H:%M")
-                time_dict[webtime] = url
+                urldata.append({"date": webtime, "url": url})
                 # print(webtime, url)
             except:
                 continue
 
-        sorted_times = sorted(time_dict.keys(), reverse=True)
-        # print(sorted_times)
-        url_list = [time_dict[time] for time in sorted_times]
-        # print(url_list)
-
-        for i, url in enumerate(url_list):
-            DataTime = sorted_times[i]
+        sorted_data = sorted(urldata, key=lambda x: x["date"], reverse=True)
+        # print(sorted_data)
+        for i, timeurl in enumerate(sorted_data):
             try:
+                DataTime, url = timeurl["date"], timeurl["url"]
+                print(DataTime, ":", url)
                 result = requests.get(url)
                 soup = BeautifulSoup(result.text, "html.parser")
                 webtitle = soup.find(id="article-container").text
 
-                if webtitle.split("(")[1].split("-")[0] != str(sn):
+                if webtitle.split("(")[1].split("-")[0] != str(stock_id):
                     continue
 
                 try:
@@ -189,6 +196,7 @@ class Stock_Predictor:
                             )
                         else:
                             EPS = ThisYearEPSest
+                        print("\n", stock_id, " ", EPS, ":", DataTime, ":", url)
                         return (float(estprice), EPS, DataTime, EPSeveryear)
             except:
                 continue
@@ -223,7 +231,7 @@ class Stock_Predictor:
         )
 
         if fig:
-            plotly_figure(sn, df, line_num, "PER")
+            plotly_figure(stock_id, df, line_num, "PER")
 
         return (df, comp_list)
 
@@ -245,7 +253,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         industry_category = Database.get_stock_info(
             stock_id, "stock_id", "industry_category"
         )
-        Stock_item = Stock_Predictor(Database, stock_id, parameter)
+        Stock_item = Stock_Predictor(Database, [stock_id, StockName], parameter)
 
         StockData[stock_id] = {
             "Name": StockName,
@@ -254,8 +262,7 @@ def calculator(Database, StockList, EPSLists, parameter):
             "industry_category": industry_category,
             "getTime": taiwan_time,
         }
-
-        # Usage: stock_number, years
+        # Usage: stock_id, years
         # 使用均值回歸預測價格
 
         price_now, MReversion = Stock_item.mean_reversion()
@@ -285,7 +292,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         }
         # =======================================================================
 
-        # Usage:   'api', stock_number, ESTeps, year_number
+        # Usage:   'api', stock_id, ESTeps, year_number
         # 使用本益比四分位數預測股價
 
         pe_list = Stock_item.get_PER()
@@ -300,7 +307,7 @@ def calculator(Database, StockList, EPSLists, parameter):
             StockData[stock_id]["ESTPER"].append([PE, Price, Rate])
         # =======================================================================
 
-        # Usage: stock_number, ESTeps, year
+        # Usage: stock_id, ESTeps, year
         # 利用本益比標準差預測股價
 
         (df, comp_list) = Stock_item.per_std(fig=False)

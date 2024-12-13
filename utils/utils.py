@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from bs4 import BeautifulSoup
 from googlesearch import search
+from urllib.parse import unquote
 import plotly.graph_objects as go
 
 from google.oauth2 import service_account
@@ -33,7 +34,7 @@ def write2txt(msg, filepath=None):
     print(msg)
 
 
-def plotly_figure(sn, df, line_num, y_label):
+def plotly_figure(stock_id, df, line_num, y_label):
     fig = go.Figure()
     line_list = ["TL+2SD", "TL+SD", "TL", "TL-SD", "TL-2SD", y_label]
     if line_num == 7:
@@ -48,7 +49,13 @@ def plotly_figure(sn, df, line_num, y_label):
         xaxis_title="Dates",
         yaxis_title=y_axis_title,
         font=dict(family="Courier New, monospace", size=26, color="#7f7f7f"),
-        title={"text": sn, "xanchor": "center", "y": 0.995, "x": 0.5, "yanchor": "top"},
+        title={
+            "text": stock_id,
+            "xanchor": "center",
+            "y": 0.995,
+            "x": 0.5,
+            "yanchor": "top",
+        },
     )
     fig.update_layout(showlegend=False)
     fig.show()
@@ -356,22 +363,30 @@ def ResultOutput(result_path, StockDatas):
             writer.writerow(csvdata)
 
 
-def get_google_search_results(query, num_results=10):
-    results = []
+def get_search_results(query, num_results=10):
+    search_results = []
     # url = f"https://www.google.com/search?q={query}&num={num_results}"
     # response = requests.get(url, headers=headers)
     # if response.status_code == 200:
     #     soup = BeautifulSoup(response.text, "html.parser")
-    #     search_results = soup.find_all("div", class_="g")
-    #     for result in search_results:
-    #         link = result.find("a")["href"]
-    #         results.append(link)
-    # if response.status_code == 429:
+    #     search_results.extend(
+    #         [data.find("a")["href"] for data in soup.find_all("div", class_="g")]
+    #     )
+    # elif response.status_code == 429:
     #     raise ("429 Too Many Requests")
-    for j in search(query, stop=num_results, pause=1.0):
-        if "cnyes.com" in j:
-            results.append(j.replace("print", "id"))
-    return results
+
+    # search_results = search(query, stop=num_results, pause=2.0)
+
+    url = f"https://tw.search.yahoo.com/search?p={query}&fr=yfp-search-sb"
+    response = requests.get(url, headers=headers)
+    response.encoding = "utf-8"
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    for i in (soup.find_all("div", id="left")[0]).find_all("a"):
+        url = i["href"]
+        if "https%3a%2f%2fnews.cnyes.com%2fnews%2fid%2f" in url:
+            search_results.append(unquote(url.split("/RK=")[0].split("RU=")[1]))
+    return search_results
 
 
 def Parameter_read(file):

@@ -9,7 +9,6 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from googlesearch import search
 from urllib.parse import unquote
-import plotly.graph_objects as go
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -32,33 +31,6 @@ def write2txt(msg, filepath=None):
     with filepath.open(mode="a", encoding="utf-8") as file:
         file.write(f"{msg}\n")
     print(msg)
-
-
-def plotly_figure(stock_id, df, line_num, y_label):
-    fig = go.Figure()
-    line_list = ["TL+2SD", "TL+SD", "TL", "TL-SD", "TL-2SD", y_label]
-    if line_num == 7:
-        line_list.insert(-1, "TL-3SD")
-        line_list.insert(0, "TL+3SD")
-
-    for i in line_list:
-        fig.add_trace(go.Scatter(x=df["date"], y=df[i], name=i))
-
-    y_axis_title = "Price" if y_label != "PER" else "PE"
-    fig.update_layout(
-        xaxis_title="Dates",
-        yaxis_title=y_axis_title,
-        font=dict(family="Courier New, monospace", size=26, color="#7f7f7f"),
-        title={
-            "text": stock_id,
-            "xanchor": "center",
-            "y": 0.995,
-            "x": 0.5,
-            "yanchor": "top",
-        },
-    )
-    fig.update_layout(showlegend=False)
-    fig.show()
 
 
 def ResultOutput(result_path, StockDatas):

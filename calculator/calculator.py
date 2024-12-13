@@ -100,7 +100,6 @@ class Stock_Predictor:
             ],
         ]
 
-        # plotly_figure(self.stock_id, df, line_num, "close")
         return price_now, MReversion
 
     def get_EPS(self):
@@ -229,9 +228,6 @@ class Stock_Predictor:
             + ["TL"]
             + [f"TL-{i}SD" for i in range(1, 4)]
         )
-
-        if fig:
-            plotly_figure(stock_id, df, line_num, "PER")
 
         return (df, comp_list)
 

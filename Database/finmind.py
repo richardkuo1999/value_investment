@@ -23,10 +23,10 @@ class Finminder:
         )
         api_request_limit = resp.json()["api_request_limit"]
         user_count = resp.json()["user_count"]
+        print(
+            f"{self.TokenUSE+1}: user_count/api_request_limit: {user_count}/{api_request_limit}"
+        )
         if (api_request_limit - user_count) <= 50:
-            print(
-                f"{self.TokenUSE+1}: user_count/api_request_limit: {user_count}/{api_request_limit}"
-            )
             self.TokenUSE += 1
             self.TokenUSE %= len(self.TokenList)
             self.get_efficient_token()
@@ -45,7 +45,7 @@ class Finminder:
     def get_taiwan_option_daily(self, option_id, start_date):
         return self.api.taiwan_option_daily(option_id, start_date)
 
-    def Get_TAIEX(self, start_date):
+    def get_TAIEX(self, start_date):
         return self.api.tse(start_date)
 
     def get_stock_info(self, stock_id: str, tag1: str, tag2: str) -> str:

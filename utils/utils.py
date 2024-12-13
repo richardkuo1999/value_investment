@@ -134,11 +134,11 @@ def ResultOutput(result_path, StockDatas):
         )
 
         write2txt(
-            f"股票名稱: {StockData["Name"]}\t\t股票代號: {StockData["stock_id"]}\
-                    \n公司產業: {StockData["industry_category"]}\t\t股票類型: {StockData["IPOtype"]}",
+            f"股票名稱: {StockData['Name']}\t\t股票代號: {StockData['stock_id']}\
+                    \n公司產業: {StockData['industry_category']}\t\t股票類型: {StockData['IPOtype']}",
             fw,
         )
-        write2txt(f"現在股價為:	{StockData["price"]}\n", fw)
+        write2txt(f"現在股價為:	{StockData['price']}\n", fw)
 
         csvdata[0], csvdata[1], csvdata[2], csvdata[3], csvdata[4] = (
             StockData["Name"],
@@ -160,25 +160,25 @@ def ResultOutput(result_path, StockDatas):
         write2txt("偏離越多標準差越遠代表趨勢越強，請勿直接進場。\n\n", fw)
 
         write2txt(
-            f"{StockData["stock_id"]} 往上的機率為: {StockData["mean_reversion"][0][0]}%, 維持在這個區間的機率為: {StockData["mean_reversion"][0][1]}%, 往下的機率為: {StockData["mean_reversion"][0][2]}%\n",
+            f"{StockData['stock_id']} 往上的機率為: {StockData['mean_reversion'][0][0]}%, 維持在這個區間的機率為: {StockData['mean_reversion'][0][1]}%, 往下的機率為: {StockData['mean_reversion'][0][2]}%\n",
             fw,
         )
         write2txt(
-            f"目前股價: {StockData["price"]}, TL價: {StockData["mean_reversion"][1][0]}, TL價潛在漲幅: {StockData["mean_reversion"][1][1]}",
+            f"目前股價: {StockData['price']}, TL價: {StockData['mean_reversion'][1][0]}, TL價潛在漲幅: {StockData['mean_reversion'][1][1]}",
             fw,
         )
         write2txt("做多評估：", fw)
         write2txt(
-            f"期望值為: {StockData["mean_reversion"][2][0]}, 期望報酬率為: {StockData["mean_reversion"][2][1]}% (保守計算: 上檔TL，下檔歸零)",
+            f"期望值為: {StockData['mean_reversion'][2][0]}, 期望報酬率為: {StockData['mean_reversion'][2][1]}% (保守計算: 上檔TL，下檔歸零)",
             fw,
         )
         write2txt(
-            f"期望值為: {StockData["mean_reversion"][3][0]}, 期望報酬率為: {StockData["mean_reversion"][3][1]}% (樂觀計算: 上檔TL，下檔-3SD)\n",
+            f"期望值為: {StockData['mean_reversion'][3][0]}, 期望報酬率為: {StockData['mean_reversion'][3][1]}% (樂觀計算: 上檔TL，下檔-3SD)\n",
             fw,
         )
         write2txt("做空評估: ", fw)
         write2txt(
-            f"期望值為: {StockData["mean_reversion"][4][0]}, 期望報酬率為: {StockData["mean_reversion"][4][1]}% (樂觀計算: 上檔+3SD，下檔TL)\n",
+            f"期望值為: {StockData['mean_reversion'][4][0]}, 期望報酬率為: {StockData['mean_reversion'][4][1]}% (樂觀計算: 上檔+3SD，下檔TL)\n",
             fw,
         )
 
@@ -211,14 +211,14 @@ def ResultOutput(result_path, StockDatas):
         else:
             write2txt(f"無法取得 Fectset EPS 評估報告，使用近四季EPS總和.\n", fw)
         write2txt(
-            f"\n估計EPS: {StockData["Anue"]["ESTeps"]}  預估本益比：    {StockData["Anue"]["FuturePER"]}",
+            f"\n估計EPS: {StockData['Anue']['ESTeps']}  預估本益比：    {StockData['Anue']['FuturePER']}",
             fw,
         )
         write2txt(
-            f"Factest目標價: {StockData["Anue"]["FactsetESTprice"][0]}  推算潛在漲幅為:  {StockData["Anue"]["FactsetESTprice"][1]}",
+            f"Factest目標價: {StockData['Anue']['FactsetESTprice'][0]}  推算潛在漲幅為:  {StockData['Anue']['FactsetESTprice'][1]}",
             fw,
         )
-        write2txt(f"資料日期: {StockData["Anue"]["DataTime"]}  ", fw)
+        write2txt(f"資料日期: {StockData['Anue']['DataTime']}  ", fw)
         write2txt("", fw)
 
         csvdata[16], csvdata[17], csvdata[18], csvdata[19], csvdata[20] = (
@@ -482,7 +482,7 @@ def upload_files(folder_path, yamlToken, gdToken):
 class UnderEST:
     @staticmethod
     def getUnderstimated(StockData):
-        UndersESTDict = {"test":0}
+        UndersESTDict = {"test": 0}
         for index, (StockID, StockData) in enumerate(StockData.items()):
             if not isOrdinaryStock(StockID):
                 continue
@@ -496,7 +496,7 @@ class UnderEST:
         for No, (StockID, StockData) in enumerate(UndersESTDict.items(), start=0):
             if No == 0:
                 continue
-            msg += f'{StockData["stock_id"]}{StockData["Name"]}: {StockData["SDESTPER"][4][2]:.1f}%\n'
+            msg += f"{StockData['stock_id']}{StockData['Name']}: {StockData['SDESTPER'][4][2]:.1f}%\n"
         Line_print(msg)
         return msg
 

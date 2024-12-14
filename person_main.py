@@ -46,7 +46,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 from calculator.stock_select import get_etf_constituents, get_institutional_top50
 from calculator.calculator import calculator
-from utils.utils import ModifideParameter, Parameter_read
 
 
 if __name__ == "__main__":

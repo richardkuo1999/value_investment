@@ -104,7 +104,6 @@ class Stock_Predictor:
         return price_now, MReversion
 
     def get_eps(self):
-        stock_id = self.stock_id
         estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
         # estprice, eps, DataTime, EPSeveryear = -1,None,None,None
 
@@ -114,11 +113,11 @@ class Stock_Predictor:
         if self.EPS is not None:
             eps = self.EPS
 
+        # 近四季EPS總和
+        lst_eps_sum = sum(self.Database.get_eps()[-4:])
         if type(eps) != int and type(eps) != float:
-            # 近四季EPS總和
-            lst_eps = self.Database.get_eps()
-            eps = sum(lst_eps[-4:])
-        return estprice, eps, DataTime, EPSeveryear
+            eps = lst_eps_sum
+        return estprice, eps, lst_eps_sum, DataTime, EPSeveryear
 
     def crwal_estimate_eps(self):
         stock_id, StockName = self.stock_id, self.stock_name
@@ -272,7 +271,9 @@ def calculator(Database, StockList, EPSLists, parameter):
         if EPSLists and EPSLists[No - 1]:
             Stock_item.EPS = float(EPSLists[No - 1])
 
-        FactsetESTprice, ESTeps, AnueDataTime, EPSeveryear = Stock_item.get_eps()
+        FactsetESTprice, ESTeps, lst_eps_sum, AnueDataTime, EPSeveryear = (
+            Stock_item.get_eps()
+        )
 
         StockData[stock_id].update(
             {"price": price_now, "EPSeveryear": EPSeveryear},
@@ -317,7 +318,10 @@ def calculator(Database, StockList, EPSLists, parameter):
             )
         # =======================================================================
         # 從 Goodinfo 取得 PEG 和 公司資訊
-        peg = Goodinfo.get_peg(stock_id)
+        if (EPSeveryear and datetime.now() - AnueDataTime).days < 365:
+            peg = Stock_item.per_pbr["PER"][-1] / (ESTeps / lst_eps_sum - 1) / 100
+        else:
+            peg = Goodinfo.get_peg(stock_id)
         StockData[stock_id]["PEG"] = (
             [peg, price_now / peg / ESTeps, price_now / peg, (1 / peg - 1) * 100]
             if peg

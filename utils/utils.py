@@ -32,11 +32,13 @@ def write2txt(msg, filepath=None):
         file.write(f"{msg}\n")
     print(msg)
 
-def fetch_webpage(url: str) -> BeautifulSoup:
+
+def fetch_webpage(url: str, headers=headers) -> BeautifulSoup:
     """Fetch and parse webpage content"""
     response = requests.get(url, headers=headers)
     response.encoding = "utf-8"
     return BeautifulSoup(response.text, "html5lib")
+
 
 def ResultOutput(result_path, StockDatas):
     rowtitle = [
@@ -99,11 +101,17 @@ def ResultOutput(result_path, StockDatas):
         "TL-3SD PE",
         "T-3SD價位",
         "TL-3SD潛在漲幅",
+        # 54
+        "公司資訊",
+        "PEG",
+        "PEG PE",
+        "PEG價位",
+        "PEG潛在漲幅",
     ]
     for No, (StockID, StockData) in enumerate(StockDatas.items(), start=0):
         if No == 0:
             continue
-        csvdata = [None] * 54
+        csvdata = [None] * 59
         fw = result_path.with_suffix(".txt")
         write2txt(
             "===========================================================================\n",
@@ -115,6 +123,10 @@ def ResultOutput(result_path, StockDatas):
                     \n公司產業: {StockData['industry_category']}\t\t股票類型: {StockData['IPOtype']}",
             fw,
         )
+
+        write2txt(f"公司資訊:{StockData['companyinfo']}\n\n", fw)
+        csvdata[54] = StockData["companyinfo"]
+
         write2txt(f"現在股價為:	{StockData['price']}\n", fw)
 
         csvdata[0], csvdata[1], csvdata[2], csvdata[3], csvdata[4] = (
@@ -268,7 +280,29 @@ def ResultOutput(result_path, StockDatas):
                 StockData["SDESTPER"][i][1],
                 StockData["SDESTPER"][i][2],
             )
+        write2txt(
+            "===========================================================================",
+            fw,
+        )
+        csvdata[55], csvdata[56], csvdata[57], csvdata[58] = StockData["PEG"]
+
+        write2txt("PEG估值......", fw)
         write2txt("", fw)
+        uniformat = "PEG: {:<20.2f} 本益比為:{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
+        write2txt(
+            uniformat.format(
+                StockData["PEG"][0],
+                StockData["PEG"][1],
+                StockData["PEG"][2],
+                StockData["PEG"][3],
+            ),
+            fw,
+        )
+
+        write2txt(
+            "===========================================================================",
+            fw,
+        )
 
         with open(
             result_path.with_suffix(".csv"), mode="a", newline="", encoding="utf-8"
@@ -307,6 +341,10 @@ def ResultOutput(result_path, StockDatas):
             f"=(AU{No+1}/D{No+1}-1)*100",
             f"=(AX{No+1}/D{No+1}-1)*100",
             f"=(BA{No+1}/D{No+1}-1)*100",
+        )
+        csvdata[56], csvdata[57] = (
+            f"=(D{No+1}/BD{No+1}/Q{No+1})",
+            f"=(D{No+1}/BD{No+1})",
         )
 
         with open(

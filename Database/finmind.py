@@ -116,7 +116,7 @@ class Finminder:
         )
         return (stock_data["date"].tolist(), stock_data["close"].tolist())
 
-    def get_per(self) -> tuple[list[float]]:
+    def get_per_pbr(self) -> tuple[list[float]]:
         """Get PER values
 
         Returns:
@@ -127,4 +127,8 @@ class Finminder:
             stock_id=self.stock_id,
             start_date=self.start_date,
         )
-        return (stock_data["date"].tolist(), stock_data["PER"].tolist())
+        return {
+            "date": stock_data["date"].tolist(),
+            "PER": stock_data["PER"].tolist(),
+            "PBR": stock_data["PBR"].tolist(),
+        }

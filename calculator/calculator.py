@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from sklearn.linear_model import LinearRegression
 
+from calculator.Goodinfo import Goodinfo
 from utils.utils import get_search_results, fetch_webpage
 
 
@@ -24,10 +25,12 @@ class Stock_Predictor:
             self.stock_id,
             self.start_date,
         )
+        self.per_pbr = self.Database.get_per_pbr()
+        self.closing_price = self.Database.get_closing_price()
 
-    def get_per(self):
+    def per_quartile(self):
         lst_per = []
-        _, per = self.Database.get_per()
+        per = self.per_pbr["PER"]
         lst_per = [np.percentile(per, p) for p in (25, 50, 75)]
         lst_per.append(round(statistics.mean(per), 2))
         self.current_pe = per[-1]
@@ -37,7 +40,7 @@ class Stock_Predictor:
 
         prob_data = [0.001, 0.021, 0.136, 0.341, 0.341, 0.136, 0.021, 0.001]
         reg = LinearRegression()
-        dates, price = self.Database.get_closing_price()
+        dates, price = self.closing_price
 
         idx = np.arange(1, len(price) + 1)
         reg.fit(idx.reshape(-1, 1), price)
@@ -202,9 +205,8 @@ class Stock_Predictor:
         return float(estprice), EPS, DataTime, None
 
     def per_std(self, line_num=5, fig=False):
-        date_str = self.start_date
         reg = LinearRegression()
-        dates, per = self.Database.get_per()
+        dates, per = self.per_pbr["date"], self.per_pbr["PER"]
 
         idx = np.arange(1, len(per) + 1)
         reg.fit(idx.reshape(-1, 1), per)
@@ -291,7 +293,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         # Usage:   'api', stock_id, ESTeps, year_number
         # 使用本益比四分位數預測股價
 
-        pe_list = Stock_item.get_per()
+        pe_list = Stock_item.per_quartile()
 
         StockData[stock_id]["ESTPER"] = []
         for i in range(4):
@@ -313,5 +315,15 @@ def calculator(Database, StockList, EPSLists, parameter):
             StockData[stock_id]["SDESTPER"].append(
                 [PE, Price, (Price - price_now) / price_now * 100]
             )
+        # =======================================================================
+        # 從 Goodinfo 取得 PEG 和 公司資訊
+        peg = Goodinfo.get_peg(stock_id)
+        StockData[stock_id]["PEG"] = [
+            peg,
+            price_now / peg / ESTeps,
+            price_now / peg,
+            (1 / peg - 1) * 100,
+        ]
+        StockData[stock_id]["companyinfo"] = Goodinfo.get_company_info(stock_id)
         # time.sleep(5)
     return StockData

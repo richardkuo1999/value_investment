@@ -104,9 +104,12 @@ class Stock_Predictor:
         return price_now, MReversion
 
     def get_EPS(self):
-        stock_id = self.stock_id
         estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
         # estprice, eps, DataTime, EPSeveryear = -1,None,None,None
+
+        if (datetime.now() - DataTime).days > 365:
+            eps = None
+
         if self.EPS is not None:
             eps = self.EPS
 

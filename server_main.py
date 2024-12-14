@@ -18,7 +18,7 @@ from utils.utils import (
     upload_files,
 )
 from calculator.calculator import calculator
-from calculator.Index import NotifyCnnFearGreedIndex, NotifyOptionSupportPressure
+from calculator.Index import NotifyMacroeconomics
 from calculator.stock_select import get_etf_constituents, get_institutional_top50
 
 ETFList = ["0050", "006201", "0051"]
@@ -152,8 +152,7 @@ def run():
 
     Line_print("Daily Run Finished")
     UnderEST.NotifyUndersEST(UndersESTDict)
-    NotifyCnnFearGreedIndex(Database)
-    NotifyOptionSupportPressure(Database)
+    NotifyMacroeconomics(Database)
 
 
 def daily_run():

@@ -318,12 +318,11 @@ def calculator(Database, StockList, EPSLists, parameter):
         # =======================================================================
         # 從 Goodinfo 取得 PEG 和 公司資訊
         peg = Goodinfo.get_peg(stock_id)
-        StockData[stock_id]["PEG"] = [
-            peg,
-            price_now / peg / ESTeps,
-            price_now / peg,
-            (1 / peg - 1) * 100,
-        ]
+        StockData[stock_id]["PEG"] = (
+            [peg, price_now / peg / ESTeps, price_now / peg, (1 / peg - 1) * 100]
+            if peg
+            else [-999, -999, -999, -999]
+        )
         StockData[stock_id]["companyinfo"] = Goodinfo.get_company_info(stock_id)
         # time.sleep(5)
     return StockData

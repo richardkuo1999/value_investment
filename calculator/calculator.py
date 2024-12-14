@@ -20,14 +20,14 @@ class Stock_Predictor:
             self.start_date
         )
         self.Database = Database
-        self.Database.stock_number, self.Database.start_date = (
+        self.Database.stock_id, self.Database.start_date = (
             self.stock_id,
             self.start_date,
         )
 
-    def get_PER(self):
+    def get_per(self):
         lst_per = []
-        _, per = self.Database.get_PER()
+        _, per = self.Database.get_per()
         lst_per = [np.percentile(per, p) for p in (25, 50, 75)]
         lst_per.append(round(statistics.mean(per), 2))
         self.current_pe = per[-1]
@@ -100,7 +100,7 @@ class Stock_Predictor:
 
         return price_now, MReversion
 
-    def get_EPS(self):
+    def get_eps(self):
         stock_id = self.stock_id
         estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
         # estprice, eps, DataTime, EPSeveryear = -1,None,None,None
@@ -109,7 +109,7 @@ class Stock_Predictor:
 
         if type(eps) != int and type(eps) != float:
             # 近四季EPS總和
-            lst_eps = self.Database.get_EPS()
+            lst_eps = self.Database.get_eps()
             eps = sum(lst_eps[-4:])
         return estprice, eps, DataTime, EPSeveryear
 
@@ -200,7 +200,7 @@ class Stock_Predictor:
     def per_std(self, line_num=5, fig=False):
         date_str = self.start_date
         reg = LinearRegression()
-        dates, per = self.Database.get_PER()
+        dates, per = self.Database.get_per()
 
         idx = np.arange(1, len(per) + 1)
         reg.fit(idx.reshape(-1, 1), per)
@@ -266,7 +266,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         if EPSLists and EPSLists[No - 1]:
             Stock_item.EPS = float(EPSLists[No - 1])
 
-        FactsetESTprice, ESTeps, AnueDataTime, EPSeveryear = Stock_item.get_EPS()
+        FactsetESTprice, ESTeps, AnueDataTime, EPSeveryear = Stock_item.get_eps()
 
         StockData[stock_id].update(
             {"price": price_now, "EPSeveryear": EPSeveryear},
@@ -287,7 +287,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         # Usage:   'api', stock_id, ESTeps, year_number
         # 使用本益比四分位數預測股價
 
-        pe_list = Stock_item.get_PER()
+        pe_list = Stock_item.get_per()
 
         StockData[stock_id]["ESTPER"] = []
         for i in range(4):

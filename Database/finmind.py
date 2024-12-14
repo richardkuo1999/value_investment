@@ -1,13 +1,11 @@
-import time
 import requests
-from pathlib import Path
 from FinMind.data import DataLoader
 
 
 class Finminder:
     def __init__(self, allToken):
         self.TokenUSE = 0
-        self.stock_number = None
+        self.stock_id = None
         self.start_date = None
         self.TokenList = allToken["FinmindToken"]
         self.api = DataLoader()
@@ -27,26 +25,38 @@ class Finminder:
             f"{self.TokenUSE+1}: user_count/api_request_limit: {user_count}/{api_request_limit}"
         )
         if (api_request_limit - user_count) <= 50:
-            self.TokenUSE += 1
-            self.TokenUSE %= len(self.TokenList)
-            self.get_efficient_token()
+            self.TokenUSE = (self.TokenUSE + 1) % len(self.TokenList)
+            return self.get_efficient_token()
         return Token
 
     def Login(self):
-        Token = self.get_efficient_token()
-        self.api.login_by_token(api_token=Token)
+        return self.get_stock_data(
+            "login_by_token", api_token=self.get_efficient_token()
+        )
 
     def get_taiwan_stock_info(self):
-        return self.api.taiwan_stock_info()
+        return self.get_stock_data("taiwan_stock_info")
 
-    def getCnnFearGreedIndex(self, start_date):
-        return self.api.cnn_fear_greed_index(start_date)
+    def get_stock_data(self, data_type: str, **kwargs):
+        """Generic method to get stock data
+
+        Args:
+            data_type: Type of data to retrieve
+            **kwargs: Additional arguments passed to API call
+        """
+        api_method = getattr(self.api, data_type)
+        return api_method(**kwargs)
+
+    def get_cnn_fear_greed_index(self, start_date):
+        return self.get_stock_data("cnn_fear_greed_index", start_date=start_date)
 
     def get_taiwan_option_daily(self, option_id, start_date):
-        return self.api.taiwan_option_daily(option_id, start_date)
+        return self.get_stock_data(
+            "taiwan_option_daily", option_id=option_id, start_date=start_date
+        )
 
-    def get_TAIEX(self, start_date):
-        return self.api.tse(start_date)
+    def get_taiex(self, start_date):
+        return self.get_stock_data("tse", date=start_date)
 
     def get_stock_info(self, stock_id: str, tag1: str, tag2: str) -> str:
         """get the stock info according to tag2
@@ -59,11 +69,12 @@ class Finminder:
         Returns:
             str: according to yout tag2 what you want to get
         """
-        taiwan_stock_info = self.taiwan_stock_info
-        return taiwan_stock_info.loc[taiwan_stock_info[tag1] == stock_id].iloc[0][tag2]
+        return self.taiwan_stock_info.loc[
+            self.taiwan_stock_info[tag1] == stock_id
+        ].iloc[0][tag2]
 
     def get_stockID(self, getList: list[str]) -> list[str]:
-        """stock name to stock number
+        """Convert stock names to stock numbers
 
         Args:
             getList (list[str]): the stock number you want to get
@@ -75,43 +86,45 @@ class Finminder:
         for stock_name in getList:
             try:
                 stock_id = self.get_stock_info(stock_name, "stock_name", "stock_id")
-                if stock_id[0] != "0":
+                if not stock_id.startswith("0"):
                     stock_list.append(stock_id)
             except:
-                pass
+                continue
         return stock_list
 
-    def get_EPS(self) -> list[float]:
-        """get the EPS
+    def get_eps(self) -> list[float]:
+        """Get EPS values
 
         Returns:
-            list[float]: eps
+            List of EPS values
         """
-        df = self.api.taiwan_stock_financial_statement(
-            self.stock_number, self.start_date
+        df = self.get_stock_data(
+            "taiwan_stock_financial_statement",
+            stock_id=self.stock_id,
+            start_date=self.start_date,
         )
-        lst_eps = df[df.type == "EPS"].values.tolist()
-        lst_eps = [ll[3] for ll in lst_eps]
-        return lst_eps
+        return df[df.type == "EPS"]["value"].tolist()
 
     def get_closing_price(self) -> tuple[list[float]]:
-        """get the closing price
+        """Get closing prices
 
         Returns:
             tuple[list[float], list[float]]: data dates, closing price
         """
-        stock_data = self.api.taiwan_stock_daily(self.stock_number, self.start_date)
-        price = stock_data["close"].values.tolist()
-        dates = stock_data["date"].values.tolist()
-        return (dates, price)
+        stock_data = self.get_stock_data(
+            "taiwan_stock_daily", stock_id=self.stock_id, start_date=self.start_date
+        )
+        return (stock_data["date"].tolist(), stock_data["close"].tolist())
 
-    def get_PER(self) -> tuple[list[float]]:
-        """Get the PER
+    def get_per(self) -> tuple[list[float]]:
+        """Get PER values
 
         Returns:
             tuple[list[float], list[float]]: data dates, PER
         """
-        stock_data = self.api.taiwan_stock_per_pbr(self.stock_number, self.start_date)
-        per = stock_data["PER"].values.tolist()
-        dates = stock_data["date"].values.tolist()
-        return (dates, per)
+        stock_data = self.get_stock_data(
+            "taiwan_stock_per_pbr",
+            stock_id=self.stock_id,
+            start_date=self.start_date,
+        )
+        return (stock_data["date"].tolist(), stock_data["PER"].tolist())

@@ -318,10 +318,11 @@ def calculator(Database, StockList, EPSLists, parameter):
             )
         # =======================================================================
         # 從 Goodinfo 取得 PEG 和 公司資訊
-        if (EPSeveryear and datetime.now() - AnueDataTime).days < 365:
+        try:
             peg = Stock_item.per_pbr["PER"][-1] / (ESTeps / lst_eps_sum - 1) / 100
-        else:
+        except:
             peg = Goodinfo.get_peg(stock_id)
+
         StockData[stock_id]["PEG"] = (
             [peg, price_now / peg / ESTeps, price_now / peg, (1 / peg - 1) * 100]
             if peg

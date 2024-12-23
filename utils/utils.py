@@ -7,6 +7,7 @@ import pandas as pd
 from enum import Enum
 from pathlib import Path
 from bs4 import BeautifulSoup
+from datetime import datetime
 from googlesearch import search
 from urllib.parse import unquote
 
@@ -143,11 +144,12 @@ def ResultOutput(result_path, StockDatas):
         "PBR_T-3SD價位",
         "PBR_TL-3SD潛在漲幅",
         # 92
+        "ANUEurl",
     ]
     for No, (StockID, StockData) in enumerate(StockDatas.items(), start=0):
         if No == 0:
             continue
-        csvdata = [None] * 92
+        csvdata = [None] * 93
         fw = result_path.with_suffix(".txt")
         write2txt(
             "===========================================================================\n",
@@ -244,14 +246,16 @@ def ResultOutput(result_path, StockDatas):
             fw,
         )
         write2txt(f"資料日期: {StockData['Anue']['DataTime']}  ", fw)
+        write2txt(f"url: {StockData["Anue"]["url"]}  ", fw)
         write2txt("", fw)
 
-        csvdata[16], csvdata[17], csvdata[18], csvdata[19], csvdata[20] = (
+        csvdata[16], csvdata[17], csvdata[18], csvdata[19], csvdata[20], csvdata[92] = (
             StockData["Anue"]["ESTeps"],
             StockData["Anue"]["FuturePER"],
             StockData["Anue"]["FactsetESTprice"][0],
             StockData["Anue"]["FactsetESTprice"][1],
             StockData["Anue"]["DataTime"],
+            StockData["Anue"]["url"],
         )
 
         write2txt(
@@ -613,3 +617,17 @@ class UnderEST:
 
 def isOrdinaryStock(StockID):
     return StockID[0] in "12345678"
+
+
+def getLasturl(csvpath):
+    data = {}
+    if csvpath.is_file() and csvpath.suffix == ".csv":
+        df = pd.read_csv(csvpath, encoding="utf-8")
+
+        # Skip header row and convert directly to dict
+        for _, row in df.iterrows():
+            data[str(row["股票代號"])] = {
+                "DataTime": datetime.strptime(row["資料時間"], "%Y/%m/%d"),
+                "url": row["ANUEurl"],
+            }
+    return data

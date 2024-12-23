@@ -14,6 +14,7 @@ from utils.utils import (
     Parameter_read,
     Line_print,
     UnderEST,
+    getLasturl,
     ResultOutput,
     upload_files,
 )
@@ -50,6 +51,7 @@ User_Choice = [
     "8027",
     "3587",
     "2351",
+    "6906",
 ]
 # User_Choice = ["8069"]
 
@@ -82,7 +84,7 @@ def Individual_search(StockLists, EPSLists):
     return StockDatas
 
 
-def getInstitutional(Database, StockDatas_dict, parameter):
+def getInstitutional(Database, StockDatas_dict, parameter, CatchURL):
     EPSLists = []
 
     StockList = get_institutional_top50()
@@ -97,7 +99,7 @@ def getInstitutional(Database, StockDatas_dict, parameter):
         else:
             notGetList.append(stockID)
     # Get Data
-    StockDatas = calculator(Database, notGetList, EPSLists, parameter)
+    StockDatas = calculator(Database, notGetList, EPSLists, parameter, CatchURL)
     StockDatas.update(temp)
 
     return StockDatas
@@ -107,11 +109,12 @@ def run():
     TokenPath = Path("token.yaml")
     ParameterPath = Path("Parameter.txt")
     new_result = Path("results")
-
+    CatchURL = {}
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
     for file in new_result.rglob("*"):
         if file.is_file():
+            CatchURL.update(getLasturl(file))
             file.unlink()
 
     # Read the caculate Parameter
@@ -138,6 +141,7 @@ def run():
             StockList,
             EPSLists,
             parameter,
+            CatchURL,
         )
         ResultOutput(new_result / Path(title), StockDatas)
         StockDatas_dict.update(StockDatas)
@@ -147,7 +151,9 @@ def run():
     ResultOutput(new_result / Path("Understimated"), UndersESTDict)
 
     # get Institutional
-    InstitutionalDatas = getInstitutional(Database, StockDatas_dict, parameter)
+    InstitutionalDatas = getInstitutional(
+        Database, StockDatas_dict, parameter, CatchURL
+    )
     ResultOutput(new_result / Path("Institutional_TOP50"), InstitutionalDatas)
 
     Line_print("Daily Run Finished")

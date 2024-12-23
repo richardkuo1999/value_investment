@@ -67,51 +67,87 @@ def ResultOutput(result_path, StockDatas):
         "Factest預估價潛在漲幅",
         "資料時間",
         # 21
-        "PE25%",
-        "PE25%價位",
-        "PE25%潛在漲幅",
-        "PE50%",
-        "PE50%價位",
-        "PE50%潛在漲幅",
-        "PE75%",
-        "PE75%價位",
-        "PE75%潛在漲幅",
-        "PE平均",
-        "PE平均價位",
-        "PE平均潛在漲幅",
+        "PER25%",
+        "PER25%價位",
+        "PER25%潛在漲幅",
+        "PER50%",
+        "PER50%價位",
+        "PER50%潛在漲幅",
+        "PER75%",
+        "PER75%價位",
+        "PER75%潛在漲幅",
+        "PER平均",
+        "PER平均價位",
+        "PER平均潛在漲幅",
         # 33
-        "TL+3SD PE",
-        "TL+3SD價位",
-        "TL+3SD在漲幅",
-        "TL+2SD PE",
-        "TL+2SD價位",
-        "TL+2SD在漲幅",
-        "TL+SD PE",
-        "TL+SD價位",
-        "TL+SD潛在漲幅",
-        "TL0SD PE",
-        "TL0SD價位",
-        "TL0SD潛在漲幅",
-        "TL-SD PE",
-        "TL-SD價位",
-        "TL-SD潛在漲幅",
-        "TL-2SD PE",
-        "TL-2SD價位",
-        "TL-2SD潛在漲幅",
-        "TL-3SD PE",
-        "T-3SD價位",
-        "TL-3SD潛在漲幅",
+        "PER_TL+3SD PE",
+        "PER_TL+3SD價位",
+        "PER_TL+3SD在漲幅",
+        "PER_TL+2SD PE",
+        "PER_TL+2SD價位",
+        "PER_TL+2SD在漲幅",
+        "PER_TL+SD PE",
+        "PER_TL+SD價位",
+        "PER_TL+SD潛在漲幅",
+        "PER_TL0SD PE",
+        "PER_TL0SD價位",
+        "PER_TL0SD潛在漲幅",
+        "PER_TL-SD PE",
+        "PER_TL-SD價位",
+        "PER_TL-SD潛在漲幅",
+        "PER_TL-2SD PE",
+        "PER_TL-2SD價位",
+        "PER_TL-2SD潛在漲幅",
+        "PER_TL-3SD PE",
+        "PER_T-3SD價位",
+        "PER_TL-3SD潛在漲幅",
         # 54
         "公司資訊",
         "PEG",
         "PEG PE",
         "PEG價位",
         "PEG潛在漲幅",
+        # 59
+        "PBR25%",
+        "PBR25%價位",
+        "PBR25%潛在漲幅",
+        "PBR50%",
+        "PBR50%價位",
+        "PBR50%潛在漲幅",
+        "PBR75%",
+        "PBR75%價位",
+        "PBR75%潛在漲幅",
+        "PBR平均",
+        "PBR平均價位",
+        "PBR平均潛在漲幅",
+        # 71
+        "PBR_TL+3SD PE",
+        "PBR_TL+3SD價位",
+        "PBR_TL+3SD在漲幅",
+        "PBR_TL+2SD PE",
+        "PBR_TL+2SD價位",
+        "PBR_TL+2SD在漲幅",
+        "PBR_TL+SD PE",
+        "PBR_TL+SD價位",
+        "PBR_TL+SD潛在漲幅",
+        "PBR_TL0SD PE",
+        "PBR_TL0SD價位",
+        "PBR_TL0SD潛在漲幅",
+        "PBR_TL-SD PE",
+        "PBR_TL-SD價位",
+        "PBR_TL-SD潛在漲幅",
+        "PBR_TL-2SD PE",
+        "PBR_TL-2SD價位",
+        "PBR_TL-2SD潛在漲幅",
+        "PBR_TL-3SD PE",
+        "PBR_T-3SD價位",
+        "PBR_TL-3SD潛在漲幅",
+        # 92
     ]
     for No, (StockID, StockData) in enumerate(StockDatas.items(), start=0):
         if No == 0:
             continue
-        csvdata = [None] * 59
+        csvdata = [None] * 92
         fw = result_path.with_suffix(".txt")
         write2txt(
             "===========================================================================\n",
@@ -284,6 +320,68 @@ def ResultOutput(result_path, StockDatas):
             "===========================================================================",
             fw,
         )
+
+        write2txt("計算股價淨值比四分位數與平均本益比......", fw)
+        write2txt("", fw)
+        uniformat = "股價淨值比{}% 為:\t{:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
+        for i in range(3):
+            write2txt(
+                uniformat.format(
+                    25 * (i + 1),
+                    StockData["ESTPBR"][i][0],
+                    StockData["ESTPBR"][i][1],
+                    StockData["ESTPBR"][i][2],
+                ),
+                fw,
+            )
+            csvdata[59 + 3 * i], csvdata[60 + 3 * i], csvdata[61 + 3 * i] = (
+                StockData["ESTPBR"][i][0],
+                StockData["ESTPBR"][i][1],
+                StockData["ESTPBR"][i][2],
+            )
+        write2txt(
+            uniformat.format(
+                "平均",
+                StockData["ESTPBR"][3][0],
+                StockData["ESTPBR"][3][1],
+                StockData["ESTPBR"][3][2],
+            ),
+            fw,
+        )
+        csvdata[68], csvdata[69], csvdata[70] = (
+            StockData["ESTPBR"][3][0],
+            StockData["ESTPBR"][3][1],
+            StockData["ESTPBR"][3][2],
+        )
+        write2txt("", fw)
+
+        write2txt(
+            "===========================================================================",
+            fw,
+        )
+        write2txt("計算股價淨值比標準差......", fw)
+        write2txt("", fw)
+        uniformat = "{:<20} {:<20.2f} 推算價位為:\t{:<20.2f} 推算潛在漲幅為:\t{:.2f}%"
+        for i, title in enumerate(["+3", "+2", "+1", "", "-1", "-2", "-3"]):
+            write2txt(
+                uniformat.format(
+                    f"TL{title}SD",
+                    StockData["SDESTPBR"][i][0],
+                    StockData["SDESTPBR"][i][1],
+                    StockData["SDESTPBR"][i][2],
+                ),
+                fw,
+            )
+            csvdata[71 + 3 * i], csvdata[72 + 3 * i], csvdata[73 + 3 * i] = (
+                StockData["SDESTPBR"][i][0],
+                StockData["SDESTPBR"][i][1],
+                StockData["SDESTPBR"][i][2],
+            )
+        write2txt(
+            "===========================================================================",
+            fw,
+        )
+
         csvdata[55], csvdata[56], csvdata[57], csvdata[58] = StockData["PEG"]
 
         write2txt("PEG估值......", fw)
@@ -312,70 +410,70 @@ def ResultOutput(result_path, StockDatas):
                 writer.writerow(rowtitle)
             writer.writerow(csvdata)
 
-        csvdata[3] = (
-            f'=STOCK(CONCAT(B{No+1},"{".two" if csvdata[4]=="tpex" else ".tw"}"))'
-        )
-        csvdata[9] = f"=(I{No+1}/D{No+1}-1)*100"
-        csvdata[19] = f"=(S{No+1}/D{No+1}-1)*100"
+        # csvdata[3] = (
+        #     f'=STOCK(CONCAT(B{No+1},"{".two" if csvdata[4]=="tpex" else ".tw"}"))'
+        # )
+        # csvdata[9] = f"=(I{No+1}/D{No+1}-1)*100"
+        # csvdata[19] = f"=(S{No+1}/D{No+1}-1)*100"
 
-        csvdata[23], csvdata[26], csvdata[29], csvdata[32] = (
-            f"=(W{No+1}/D{No+1}-1)*100",
-            f"=(Z{No+1}/D{No+1}-1)*100",
-            f"=(AC{No+1}/D{No+1}-1)*100",
-            f"=(AF{No+1}/D{No+1}-1)*100",
-        )
+        # csvdata[23], csvdata[26], csvdata[29], csvdata[32] = (
+        #     f"=(W{No+1}/D{No+1}-1)*100",
+        #     f"=(Z{No+1}/D{No+1}-1)*100",
+        #     f"=(AC{No+1}/D{No+1}-1)*100",
+        #     f"=(AF{No+1}/D{No+1}-1)*100",
+        # )
 
-        (
-            csvdata[35],
-            csvdata[38],
-            csvdata[41],
-            csvdata[44],
-            csvdata[47],
-            csvdata[50],
-            csvdata[53],
-        ) = (
-            f"=(AI{No+1}/D{No+1}-1)*100",
-            f"=(AL{No+1}/D{No+1}-1)*100",
-            f"=(AO{No+1}/D{No+1}-1)*100",
-            f"=(AR{No+1}/D{No+1}-1)*100",
-            f"=(AU{No+1}/D{No+1}-1)*100",
-            f"=(AX{No+1}/D{No+1}-1)*100",
-            f"=(BA{No+1}/D{No+1}-1)*100",
-        )
-        csvdata[56], csvdata[57] = (
-            f"=(D{No+1}/BD{No+1}/Q{No+1})",
-            f"=(D{No+1}/BD{No+1})",
-        )
+        # (
+        #     csvdata[35],
+        #     csvdata[38],
+        #     csvdata[41],
+        #     csvdata[44],
+        #     csvdata[47],
+        #     csvdata[50],
+        #     csvdata[53],
+        # ) = (
+        #     f"=(AI{No+1}/D{No+1}-1)*100",
+        #     f"=(AL{No+1}/D{No+1}-1)*100",
+        #     f"=(AO{No+1}/D{No+1}-1)*100",
+        #     f"=(AR{No+1}/D{No+1}-1)*100",
+        #     f"=(AU{No+1}/D{No+1}-1)*100",
+        #     f"=(AX{No+1}/D{No+1}-1)*100",
+        #     f"=(BA{No+1}/D{No+1}-1)*100",
+        # )
+        # csvdata[56], csvdata[57] = (
+        #     f"=(D{No+1}/BD{No+1}/Q{No+1})",
+        #     f"=(D{No+1}/BD{No+1})",
+        # )
 
-        with open(
-            result_path.with_name(result_path.stem + "_apple").with_suffix(".csv"),
-            mode="a",
-            newline="",
-            encoding="utf-8",
-        ) as file:
-            writer = csv.writer(file)
-            if No == 1:
-                writer.writerow(rowtitle)
-            writer.writerow(csvdata)
+        # with open(
+        #     result_path.with_name(result_path.stem + "_apple").with_suffix(".csv"),
+        #     mode="a",
+        #     newline="",
+        #     encoding="utf-8",
+        # ) as file:
+        #     writer = csv.writer(file)
+        #     if No == 1:
+        #         writer.writerow(rowtitle)
+        #     writer.writerow(csvdata)
 
-        csvdata[4] = "".join(
-            [
-                '=IMPORTXML(CONCATENATE("https://tw.stock.yahoo.com/quote/",B{},".TWO"),'.format(
-                    No + 1
-                ),
-                '"//*[@id=""main-0-QuoteHeader-Proxy""]/div/div[2]/div[1]/div/span[1]")',
-            ]
-        )
-        with open(
-            result_path.with_name(result_path.stem + "_google").with_suffix(".csv"),
-            mode="a",
-            newline="",
-            encoding="utf-8",
-        ) as file:
-            writer = csv.writer(file)
-            if No == 1:
-                writer.writerow(rowtitle)
-            writer.writerow(csvdata)
+        # csvdata[4] = "".join(
+        #     [
+        #         '=IMPORTXML(CONCATENATE("https://tw.stock.yahoo.com/quote/",B{},".TWO"),'.format(
+        #             No + 1
+        #         ),
+        #         '"//*[@id=""main-0-QuoteHeader-Proxy""]/div/div[2]/div[1]/div/span[1]")',
+        #     ]
+        # )
+        # with open(
+        #     result_path.with_name(result_path.stem + "_google").with_suffix(".csv"),
+        #     mode="a",
+        #     newline="",
+        #     encoding="utf-8",
+        # ) as file:
+        #     writer = csv.writer(file)
+        #     if No == 1:
+        #         writer.writerow(rowtitle)
+        #     writer.writerow(csvdata)
 
 
 def get_search_results(query, num_results=10):

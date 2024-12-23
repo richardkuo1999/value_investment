@@ -10,7 +10,7 @@ from utils.utils import get_search_results, fetch_webpage
 
 
 class Stock_Predictor:
-    def __init__(self, Database, stock, parameter):
+    def __init__(self, Database, stock, parameter, CatchURL):
         self.str_lst = []
         self.level, self.year, self.EPS = parameter
         now_time = datetime.now()
@@ -20,6 +20,7 @@ class Stock_Predictor:
         self.warn_str = "Warning: These PER is calculated from date {}, you can modify the date to run again.".format(
             self.start_date
         )
+        self.CatchURL = CatchURL
         self.Database = Database
         self.Database.stock_id, self.Database.start_date = (
             self.stock_id,
@@ -102,7 +103,7 @@ class Stock_Predictor:
         return price_now, MReversion
 
     def get_eps(self):
-        estprice, eps, DataTime, EPSeveryear = self.crwal_estimate_eps()
+        estprice, eps, DataTime, EPSeveryear, url = self.crwal_estimate_eps()
         # estprice, eps, DataTime, EPSeveryear = -1,None,None,None
 
         if (datetime.now() - DataTime).days > 365:
@@ -115,14 +116,15 @@ class Stock_Predictor:
         lst_eps_sum = sum(self.Database.get_eps()[-4:])
         if type(eps) != int and type(eps) != float:
             eps = lst_eps_sum
-        return estprice, eps, lst_eps_sum, DataTime, EPSeveryear
+        return estprice, eps, lst_eps_sum, DataTime, EPSeveryear, url
 
     def crwal_estimate_eps(self):
         stock_id, StockName = self.stock_id, self.stock_name
+        CatchURL = self.CatchURL
         level = self.level
         EPS = None
         estprice = -1
-        DataTime = ""
+        DataTime = datetime(1970, 1, 1, 0, 0, 0)
         year_str = str(datetime.now().year)
         month_float = float(datetime.now().month)
 
@@ -134,10 +136,9 @@ class Stock_Predictor:
         search_results = get_search_results(search_str, 10)
         # print(search_results)
 
-        url_list = [
-            j.replace("print", "id") for j in search_results if "cnyes.com" in j
-        ]
-        # print(url_list)
+        url_list = [j.replace("print", "id") for j in search_results if "cnyes.com" in j]
+        if stock_id in CatchURL and isinstance(CatchURL[stock_id]["url"], str) and CatchURL[stock_id]["url"] not in url_list:
+            url_list.append(CatchURL[stock_id]["url"])
 
         urldata = []
         for url in url_list:
@@ -196,10 +197,11 @@ class Stock_Predictor:
                         else:
                             EPS = ThisYearEPSest
                         print("\n", stock_id, " ", EPS, ":", DataTime, ":", url)
-                        return (float(estprice), EPS, DataTime, EPSeveryear)
+                        return (float(estprice), EPS, DataTime, EPSeveryear, url)
             except:
+                DataTime = datetime(1970, 1, 1, 0, 0, 0)
                 continue
-        return float(estprice), EPS, DataTime, None
+        return float(estprice), EPS, DataTime, None, None
 
     def std(self, dates, datas, line_num=5, fig=False):
         reg = LinearRegression()
@@ -245,7 +247,7 @@ class Stock_Predictor:
         return self.price_now / self.per_pbr["PBR"][-1]
 
 
-def calculator(Database, StockList, EPSLists, parameter):
+def calculator(Database, StockList, EPSLists, parameter, CatchURL={}):
     StockData = {"parameter": parameter}
     year = parameter[2]
     taiwan_tz = pytz.timezone("Asia/Taipei")
@@ -262,7 +264,9 @@ def calculator(Database, StockList, EPSLists, parameter):
         industry_category = Database.get_stock_info(
             stock_id, "stock_id", "industry_category"
         )
-        Stock_item = Stock_Predictor(Database, [stock_id, StockName], parameter)
+        Stock_item = Stock_Predictor(
+            Database, [stock_id, StockName], parameter, CatchURL
+        )
 
         StockData[stock_id] = {
             "Name": StockName,
@@ -284,7 +288,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         if EPSLists and EPSLists[No - 1]:
             Stock_item.EPS = float(EPSLists[No - 1])
 
-        FactsetESTprice, ESTeps, lst_eps_sum, AnueDataTime, EPSeveryear = (
+        FactsetESTprice, ESTeps, lst_eps_sum, AnueDataTime, EPSeveryear, url = (
             Stock_item.get_eps()
         )
 
@@ -301,6 +305,7 @@ def calculator(Database, StockList, EPSLists, parameter):
             ],
             "ESTeps": ESTeps,
             "FuturePER": price_now / ESTeps,
+            "url": url,
         }
         # =======================================================================
 

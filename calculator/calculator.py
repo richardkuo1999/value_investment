@@ -28,13 +28,11 @@ class Stock_Predictor:
         self.per_pbr = self.Database.get_per_pbr()
         self.closing_price = self.Database.get_closing_price()
 
-    def per_quartile(self):
-        lst_per = []
-        per = self.per_pbr["PER"]
-        lst_per = [np.percentile(per, p) for p in (25, 50, 75)]
-        lst_per.append(round(statistics.mean(per), 2))
-        self.current_pe = per[-1]
-        return np.array(lst_per)
+    def quartile(self, datas):
+        lst_data = [np.percentile(datas, p) for p in (25, 50, 75)]
+        lst_data.append(round(statistics.mean(datas), 2))
+        self.current_pe = datas[-1]
+        return np.array(lst_data)
 
     def mean_reversion(self, line_num=5):
 
@@ -203,27 +201,26 @@ class Stock_Predictor:
                 continue
         return float(estprice), EPS, DataTime, None
 
-    def per_std(self, line_num=5, fig=False):
+    def std(self, dates, datas, line_num=5, fig=False):
         reg = LinearRegression()
-        dates, per = self.per_pbr["date"], self.per_pbr["PER"]
 
-        idx = np.arange(1, len(per) + 1)
-        reg.fit(idx.reshape(-1, 1), per)
+        idx = np.arange(1, len(datas) + 1)
+        reg.fit(idx.reshape(-1, 1), datas)
 
         # print(reg.coef_[0]) # 斜率
         # print(reg.intercept_) # 截距
         df = {}
         df = {
             "date": np.array(dates),
-            "TL": np.full((len(per),), statistics.median(per)),
+            "TL": np.full((len(datas),), statistics.median(datas)),
         }
 
-        df["y-TL"] = per - df["TL"]
+        df["y-TL"] = datas - df["TL"]
         df["SD"] = df["y-TL"].std()
         for i in range(1, 4):
             df[f"TL-{i}SD"] = df["TL"] - i * df["SD"]
             df[f"TL+{i}SD"] = df["TL"] + i * df["SD"]
-        df["PER"] = np.array(per)
+        df["datas"] = np.array(datas)
         comp_list = (
             [f"TL+{i}SD" for i in range(3, 0, -1)]
             + ["TL"]
@@ -231,6 +228,21 @@ class Stock_Predictor:
         )
 
         return (df, comp_list)
+
+    def per_std(self, line_num=5, fig=False):
+        return self.std(self.per_pbr["date"], self.per_pbr["PER"], line_num, fig)
+
+    def per_quartile(self):
+        return self.quartile(self.per_pbr["PER"])
+
+    def pbr_std(self, line_num=5, fig=False):
+        return self.std(self.per_pbr["date"], self.per_pbr["PBR"], line_num, fig)
+
+    def pbr_quartile(self):
+        return self.quartile(self.per_pbr["PBR"])
+
+    def get_BVPS(self):
+        return self.price_now / self.per_pbr["PBR"][-1]
 
 
 def calculator(Database, StockList, EPSLists, parameter):
@@ -263,6 +275,7 @@ def calculator(Database, StockList, EPSLists, parameter):
         # 使用均值回歸預測價格
 
         price_now, MReversion = Stock_item.mean_reversion()
+        Stock_item.price_now = price_now
 
         StockData[stock_id]["mean_reversion"] = MReversion
         # =======================================================================
@@ -298,11 +311,8 @@ def calculator(Database, StockList, EPSLists, parameter):
 
         StockData[stock_id]["ESTPER"] = []
         for i in range(4):
-            PE, Price, Rate = (
-                pe_list[i],
-                ESTeps * pe_list[i],
-                (ESTeps * pe_list[i] - price_now) / price_now * 100,
-            )
+            PE, Price = pe_list[i], ESTeps * pe_list[i]
+            Rate = (Price / price_now - 1) * 100
             StockData[stock_id]["ESTPER"].append([PE, Price, Rate])
         # =======================================================================
 
@@ -313,9 +323,31 @@ def calculator(Database, StockList, EPSLists, parameter):
         StockData[stock_id]["SDESTPER"] = []
         for i, title in enumerate(comp_list):
             PE, Price = df[title][-1], ESTeps * df[title][-1]
-            StockData[stock_id]["SDESTPER"].append(
-                [PE, Price, (Price - price_now) / price_now * 100]
-            )
+            Rate = (Price / price_now - 1) * 100
+            StockData[stock_id]["SDESTPER"].append([PE, Price, Rate])
+        # =======================================================================
+
+        # Usage:   'api', stock_id, BVPS, year_number
+        # 使用股價淨值比四分位數預測股價
+        BVPS = Stock_item.get_BVPS()
+        pe_list = Stock_item.pbr_quartile()
+
+        StockData[stock_id]["ESTPBR"] = []
+        for i in range(4):
+            PE, Price = pe_list[i], BVPS * pe_list[i]
+            Rate = (Price / price_now - 1) * 100
+            StockData[stock_id]["ESTPBR"].append([PE, Price, Rate])
+        # =======================================================================
+
+        # Usage: stock_id, ESTeps, year
+        # 利用股價淨值比標準差預測股價
+
+        (df, comp_list) = Stock_item.pbr_std(fig=False)
+        StockData[stock_id]["SDESTPBR"] = []
+        for i, title in enumerate(comp_list):
+            PE, Price = df[title][-1], BVPS * df[title][-1]
+            Rate = (Price / price_now - 1) * 100
+            StockData[stock_id]["SDESTPBR"].append([PE, Price, Rate])
         # =======================================================================
         # 從 Goodinfo 取得 PEG 和 公司資訊
         try:

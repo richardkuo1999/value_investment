@@ -126,7 +126,7 @@ class Stock_Predictor:
         estprice = -1
         DataTime = datetime(1970, 1, 1, 0, 0, 0)
         year_str = str(datetime.now().year)
-        month_float = float(datetime.now().month)
+        tm_yday = float(datetime.now().timetuple().tm_yday)
 
         # Get the cnyes news
         # search_str = f'factset eps cnyes {stock_id} tw site:news.cnyes.com AND intitle:"{stock_id}" AND intitle:"factset"'
@@ -191,8 +191,8 @@ class Stock_Predictor:
                             NextYearEPSest = float(
                                 EPSeveryear[level][idx + 1].split("(")[0]
                             )
-                            EPS = (((12 - month_float) / 12) * ThisYearEPSest) + (
-                                (month_float / 12) * NextYearEPSest
+                            EPS = (((366 - tm_yday) / 366) * ThisYearEPSest) + (
+                                (tm_yday / 366) * NextYearEPSest
                             )
                         else:
                             EPS = ThisYearEPSest

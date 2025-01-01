@@ -39,8 +39,9 @@ def OptionSupportPressure(Database):
     df = get_latest_option_data(Database, option_id, start_date)
     contract_dates = df["contract_date"].unique().tolist()
 
-    current_taiex = Database.get_taiex("2024-11-28").iloc[-1]["TAIEX"]
-    msgs = f"\n台指期選擇權支撐、壓力\n台灣加權指數:{current_taiex}\n\n"
+    # current_taiex = Database.get_taiex("2024-11-28").iloc[-1]["TAIEX"]
+    # msgs = f"\n台指期選擇權支撐、壓力\n台灣加權指數:{current_taiex}\n\n"
+    msgs = f"\n台指期選擇權支撐、壓力\n\n"
 
     for contract_date in contract_dates:
         call_price, call_val = get_max_interest_price(df, contract_date, "call")

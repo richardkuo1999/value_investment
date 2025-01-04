@@ -9,17 +9,12 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
+from utils.output import ResultOutput
 from Database.finmind import Finminder
-from utils.utils import (
-    Parameter_read,
-    Line_print,
-    UnderEST,
-    getLasturl,
-    ResultOutput,
-    upload_files,
-)
+from utils.Parameter import Parameter_read
 from calculator.calculator import calculator
 from calculator.Index import NotifyMacroeconomics
+from utils.utils import Line_print, UnderEST, getLasturl
 from calculator.stock_select import get_etf_constituents, get_institutional_top50
 
 ETFList = ["0050", "006201", "0051"]
@@ -78,14 +73,14 @@ def Individual_search(StockLists, EPSLists):
     Database = Finminder(Token)
 
     # Get Data
-    StockDatas = calculator(Database, StockLists, EPSLists, parameter)
-    ResultOutput(new_result / Path("Individual"), StockDatas)
+    StockDatas = calculator(Database, StockLists, parameter)
+    ResultOutput(new_result / Path("Individual"), StockDatas, EPSLists)
 
     return StockDatas
 
 
 def getInstitutional(Database, StockDatas_dict, parameter, CatchURL):
-    EPSLists = []
+    EPSLists = None
 
     StockList = get_institutional_top50()
     Line_print(f"Start Run\nInstitutional_TOP50")
@@ -99,7 +94,7 @@ def getInstitutional(Database, StockDatas_dict, parameter, CatchURL):
         else:
             notGetList.append(stockID)
     # Get Data
-    StockDatas = calculator(Database, notGetList, EPSLists, parameter, CatchURL)
+    StockDatas = calculator(Database, notGetList, parameter, CatchURL)
     StockDatas.update(temp)
 
     return StockDatas
@@ -109,13 +104,19 @@ def run():
     TokenPath = Path("token.yaml")
     ParameterPath = Path("Parameter.txt")
     new_result = Path("results")
+    backup = Path("backup")
     CatchURL = {}
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
+    backup.mkdir(parents=True, exist_ok=True)
+    for file in backup.rglob("*"):
+        if file.is_file():
+            file.unlink()
+            
     for file in new_result.rglob("*"):
         if file.is_file():
             CatchURL.update(getLasturl(file))
-            file.unlink()
+            file.rename(backup / file.name)
 
     # Read the caculate Parameter
     if ParameterPath.exists():
@@ -130,7 +131,7 @@ def run():
     for etf in ETFList:
         StockLists[etf] = get_etf_constituents(etf)
 
-    EPSLists = []
+    EPSLists = None
     StockDatas_dict = {}
 
     for title, StockList in StockLists.items():
@@ -139,7 +140,6 @@ def run():
         StockDatas = calculator(
             Database,
             StockList,
-            EPSLists,
             parameter,
             CatchURL,
         )
@@ -148,17 +148,18 @@ def run():
 
     # get Understimated
     UndersESTDict = UnderEST.getUnderstimated(StockDatas_dict)
-    ResultOutput(new_result / Path("Understimated"), UndersESTDict)
+    ResultOutput(new_result / Path("Understimated"), UndersESTDict, EPSLists)
 
     # get Institutional
     InstitutionalDatas = getInstitutional(
         Database, StockDatas_dict, parameter, CatchURL
     )
-    ResultOutput(new_result / Path("Institutional_TOP50"), InstitutionalDatas)
+    ResultOutput(new_result / Path("Institutional_TOP50"), InstitutionalDatas, EPSLists)
 
     Line_print("Daily Run Finished")
     UnderEST.NotifyUndersEST(UndersESTDict)
     NotifyMacroeconomics(Database)
+    Line_print("Down load link:\nCSV: http://54.205.241.96:8000/download/csv\nTXT: http://54.205.241.96:8000/download/txt")
 
 
 def daily_run():

@@ -127,8 +127,4 @@ class Finminder:
             stock_id=self.stock_id,
             start_date=self.start_date,
         )
-        return {
-            "date": stock_data["date"].tolist(),
-            "PER": stock_data["PER"].tolist(),
-            "PBR": stock_data["PBR"].tolist(),
-        }
+        return stock_data["PER"].tolist(), stock_data["PBR"].tolist()

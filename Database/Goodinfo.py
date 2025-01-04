@@ -7,8 +7,12 @@ headers = {
 
 
 class Goodinfo:
-    @staticmethod
-    def get_peg(stock_id: str) -> str | None:
+    def __init__(self, stock_id: str) -> None:
+        self.stock_id = stock_id
+        self.TTMPEG = self.get_peg()
+        self.CompanyINFO = self.get_company_info()
+
+    def get_peg(self) -> str | None:
         """
         Get PEG ratio from Goodinfo website for given stock ID
         Args:
@@ -16,9 +20,8 @@ class Goodinfo:
         Returns:
             PEG ratio as string if found, None otherwise
         """
-        url = f"https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID={stock_id}"
+        url = f"https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID={self.stock_id}"
         soup = fetch_webpage(url, headers)
-
         data_rows = soup.find_all("tr", {"align": "center", "bgcolor": "white"})
         if not data_rows or len(data_rows) < 2:
             return None
@@ -34,7 +37,7 @@ class Goodinfo:
         except (IndexError, AttributeError):
             return None
 
-    def get_company_info(stock_id: str) -> str | None:
-        url = f"https://goodinfo.tw/tw/BasicInfo.asp?STOCK_ID={stock_id}"
+    def get_company_info(self) -> str | None:
+        url = f"https://goodinfo.tw/tw/BasicInfo.asp?STOCK_ID={self.stock_id}"
         soup = fetch_webpage(url, headers)
         return soup.find_all("td", {"bgcolor": "white", "colspan": "3"}, "p")[14].text

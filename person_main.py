@@ -4,10 +4,10 @@ import yaml
 import shutil
 from termcolor import *
 from pathlib import Path
-from Database.finmind import Finminder
 import argparse
 
-from utils.utils import ResultOutput
+from utils.output import ResultOutput
+from Database.finmind import Finminder
 
 """
 parameter -> sel
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         # 1. 查詢ETF成分股
         if UserInput == "1":
             UserInput = input("1.0050, 006201, 0051\n2. 自行輸入\n輸入: ")
-            ETFList = []
+            ETFList = None
             if UserInput == "1":
                 ETFList = ["0050", "006201", "0051"]
             elif UserInput == "2":
@@ -100,7 +100,7 @@ if __name__ == "__main__":
             print(title, StockList)
 
             # Get Data
-            StockDatas = calculator(Database, StockList, EPSLists, parameter)
-            ResultOutput(new_result / Path(title), StockDatas)
+            StockDatas = calculator(Database, StockList, parameter)
+            ResultOutput(new_result / Path(title), StockDatas, EPSLists)
         print("Enter to continue...")
         input()

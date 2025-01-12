@@ -87,4 +87,5 @@ class Math(Enum):
             "prob": [up_prob * 100, hold_prob * 100, down_prob * 100],
             "TL": TL,
             "expect": [expect_val_bull_1, expect_val_bull_2, expect_val_bear_1],
+            "staff": [df[title][-1] for title in comp_list],
         }

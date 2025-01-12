@@ -32,6 +32,14 @@ rowtitle = [
     "樂觀做多期望值",
     "樂觀做空期望值",
     # =========== 23
+    "超極樂觀",
+    "極樂觀",
+    "樂觀",
+    "趨勢",
+    "悲觀",
+    "極悲觀",
+    "超極悲觀",
+    # ===========
     "PE(25%)",
     "PE(50%)",
     "PE(75%)",
@@ -43,7 +51,7 @@ rowtitle = [
     "PE(TL-SD)",
     "PE(TL-2SD)",
     "PE(TL-3SD)",
-    # =========== 34
+    # ===========
     "PB(25%)",
     "PB(50%)",
     "PB(75%)",
@@ -55,7 +63,7 @@ rowtitle = [
     "PB(TL-SD)",
     "PB(TL-2SD)",
     "PB(TL-3SD)",
-    # =========== 45
+    # ===========
     "PEG",
 ]
 
@@ -95,15 +103,15 @@ PE(TTM): {StockData["PE(TTM)"]:>10.2f}          PB(TTM): {StockData["PB(TTM)"]:>
 
         TargetPrice = StockData["Yahoo_1yTargetEst"]
         if TargetPrice:
-                Profit = getProfit(TargetPrice, ClossPrice)
-                text += f"""
+            Profit = getProfit(TargetPrice, ClossPrice)
+            text += f"""
 ============================================================================
 Yahoo Finance 1y Target Est....
 
 目標價位: {TargetPrice:>10.2f}          潛在漲幅: {Profit:>10.2f}%
 """
         else:
-                pass
+            pass
 
         expect = StockData["MeanReversion"]["expect"]
         prob = StockData["MeanReversion"]["prob"]
@@ -127,11 +135,27 @@ Yahoo Finance 1y Target Est....
 做空評估: 
 期望值為: {expect[2]:>10.2f}, 期望報酬率為: {expectProfitRate[2]:>10.2f}% (樂觀計算: 上檔+3SD，下檔TL)
 """
+
+        TargetPrice = StockData["MeanReversion"]["staff"]
+        Profit = [getProfit(TargetPrice[i], ClossPrice) for i in range(7)]
+        text += f"""
+============================================================================
+樂活五線譜......      
+
+
+    超極樂觀價位: {TargetPrice[0]:>10.2f}, 潛在漲幅: {Profit[0]:>10.2f}%
+    極樂觀價位:   {TargetPrice[1]:>10.2f}, 潛在漲幅: {Profit[1]:>10.2f}%
+    樂觀價位:     {TargetPrice[2]:>10.2f}, 潛在漲幅: {Profit[2]:>10.2f}%
+    趨勢價位:     {TargetPrice[3]:>10.2f}, 潛在漲幅: {Profit[3]:>10.2f}%
+    悲觀價位:     {TargetPrice[4]:>10.2f}, 潛在漲幅: {Profit[4]:>10.2f}%
+    極悲觀價位:    {TargetPrice[5]:>10.2f}, 潛在漲幅: {Profit[5]:>10.2f}%
+    超極悲觀價位:  {TargetPrice[6]:>10.2f}, 潛在漲幅: {Profit[6]:>10.2f}%
+"""
         AnueDatas = StockData["Anue"]
         if AnueDatas["EPS(EST)"]:
-                TargetPrice = AnueDatas["Factest目標價"]
-                Profit = getProfit(TargetPrice, ClossPrice)
-                text += f"""
+            TargetPrice = AnueDatas["Factest目標價"]
+            Profit = getProfit(TargetPrice, ClossPrice)
+            text += f"""
 ============================================================================
 Factest預估
 
@@ -141,7 +165,7 @@ Factest目標價: {TargetPrice:>10.2f}  推算潛在漲幅為:  {Profit:>10.2f}
 url: {AnueDatas["ANUEurl"]}
 """
         else:
-                pass
+            pass
 
         rate = StockData["ESTPER"]
         TargetPrice = [getTarget(rate[i], eps) for i in range(4)]
@@ -201,18 +225,17 @@ PB TL-2SD : {rate[5]:>10.2f}           目標價位: {TargetPrice[5]:>10.2f}    
 PB TL-3SD : {rate[6]:>10.2f}           目標價位: {TargetPrice[6]:>10.2f}          潛在漲幅: {Profit[6]:>10.2f}%
 """
 
-
         peg = StockData["PEG"]
         if peg or eps != StockData["EPS(TTM)"]:
-                if eps != StockData["EPS(TTM)"]:
-                        epsGrowth = (eps / StockData["EPS(TTM)"] - 1) * 100
-                        peg = StockData["PE(TTM)"] / epsGrowth
-                        TargetPrice = getTarget(epsGrowth, StockData["EPS(TTM)"])
-                else:
-                        epsGrowth = getTarget(1/peg, StockData["EPS(TTM)"])
-                        TargetPrice = ClossPrice / peg
-                Profit = getProfit(TargetPrice, ClossPrice)
-                text += f"""
+            if eps != StockData["EPS(TTM)"]:
+                epsGrowth = (eps / StockData["EPS(TTM)"] - 1) * 100
+                peg = StockData["PE(TTM)"] / epsGrowth
+                TargetPrice = getTarget(epsGrowth, StockData["EPS(TTM)"])
+            else:
+                epsGrowth = getTarget(1 / peg, StockData["EPS(TTM)"])
+                TargetPrice = ClossPrice / peg
+            Profit = getProfit(TargetPrice, ClossPrice)
+            text += f"""
 ============================================================================
 PEG估值......
 
@@ -220,7 +243,7 @@ PEG: {peg:>10.2f}           EPS成長率: {epsGrowth :>10.2f}
 目標價位: {TargetPrice:>10.2f}          潛在漲幅: {Profit:>10.2f}%
 """
         else:
-                pass
+            pass
 
     write2txt(text, fw)
 

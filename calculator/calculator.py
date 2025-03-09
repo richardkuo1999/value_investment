@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from datetime import datetime, timedelta
 
@@ -35,8 +36,8 @@ class Stock_Predictor:
         self.epsDatas = Database.get_eps()
 
         goodinfo = Goodinfo(stock_id)
-        self.PEG = goodinfo.TTMPEG
-        self.companyINFO = goodinfo.CompanyINFO
+        self.PEG = 0
+        self.companyINFO = "goodinfo.CompanyINFO"
 
         # yahooFinance = YahooFinance(stock_id, self.Market)
         # self.avg1yTargetEst = yahooFinance.get_1yTargetEst()
@@ -62,6 +63,7 @@ class Stock_Predictor:
 
 
 def calculator(Database, StockList, parameter, CatchURL={}):
+    time.sleep(60)
     StockData = {}
     for i, stock_id in enumerate(StockList, start=1):
         No = i

@@ -53,5 +53,5 @@ def OptionSupportPressure(Database):
 
 
 def NotifyMacroeconomics(Database):
-    Line_print(CnnFearGreedIndex(Database))
+    # Line_print(CnnFearGreedIndex(Database))
     Line_print(OptionSupportPressure(Database))

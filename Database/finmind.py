@@ -1,3 +1,4 @@
+import time
 import requests
 from FinMind.data import DataLoader
 
@@ -45,7 +46,12 @@ class Finminder:
             **kwargs: Additional arguments passed to API call
         """
         api_method = getattr(self.api, data_type)
-        return api_method(**kwargs)
+        try:
+            result_data = api_method(**kwargs)
+        except:
+            time.sleep(10)
+            result_data = api_method(**kwargs)
+        return result_data
 
     def get_cnn_fear_greed_index(self, start_date):
         return self.get_stock_data("cnn_fear_greed_index", start_date=start_date)

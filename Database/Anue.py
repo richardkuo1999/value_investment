@@ -24,8 +24,9 @@ class ANUE:
         tm_yday = float(datetime.now().timetuple().tm_yday)
 
         # Get the cnyes news
+        print("get_search_results")
         url_list = self.get_search_results(10)
-        # print(url_list)
+        print(url_list)
 
         urldata = []
         for url in url_list:
@@ -60,6 +61,7 @@ class ANUE:
                 webtitle = soup.find(id="article-container").text
 
                 if webtitle.split("(")[1].split("-")[0] != str(stock_id):
+                    url = None
                     continue
 
                 try:

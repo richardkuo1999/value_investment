@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from utils.utils import Line_print
+from utils.utils import Telegram_print
 
 
 def CnnFearGreedIndex(Database):
@@ -53,5 +53,5 @@ def OptionSupportPressure(Database):
 
 
 def NotifyMacroeconomics(Database):
-    # Line_print(CnnFearGreedIndex(Database))
-    Line_print(OptionSupportPressure(Database))
+    # Telegram_print(CnnFearGreedIndex(Database))
+    Telegram_print(OptionSupportPressure(Database))

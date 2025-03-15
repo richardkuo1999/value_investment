@@ -14,41 +14,41 @@ from Database.finmind import Finminder
 from utils.Parameter import Parameter_read
 from calculator.calculator import calculator
 from calculator.Index import NotifyMacroeconomics
-from utils.utils import Line_print, UnderEST, getLasturl
+from utils.utils import Telegram_print, UnderEST, getLasturl
 from calculator.stock_select import get_etf_constituents, get_institutional_top50
 
 ETFList = ["0050", "006201", "0051"]
 # ETFList = []
 User_Choice = [
-"1560",
-"2337",
-"2351",
-"2455",
-"2458",
-"2467",
-"3006",
-"3042",
-"3081",
-"3455",
-"3563",
-"3587",
-"3596",
-"3708",
-"4768",
-"4906",
-"5236",
-"5306",
-"5388",
-"5469",
-"6271",
-"6438",
-"6664",
-"6937",
-"6957",
-"8027",
-"8358",
-"8936",
-"9914",
+    "1560",
+    "2337",
+    "2351",
+    "2455",
+    "2458",
+    "2467",
+    "3006",
+    "3042",
+    "3081",
+    "3455",
+    "3563",
+    "3583",
+    "3587",
+    "3596",
+    "3708",
+    "4768",
+    "4906",
+    "5236",
+    "5306",
+    "5388",
+    "5469",
+    "6271",
+    "6438",
+    "6664",
+    "6937",
+    "8027",
+    "8358",
+    "8936",
+    "9914",
 ]
 # User_Choice = ["8069"]
 
@@ -85,7 +85,7 @@ def getInstitutional(Database, StockDatas_dict, parameter, CatchURL):
     EPSLists = None
 
     StockList = get_institutional_top50()
-    Line_print(f"Start Run\nInstitutional_TOP50")
+    Telegram_print(f"Start Run\nInstitutional_TOP50")
 
     isGetList = StockDatas_dict.keys()
     temp = {}
@@ -114,7 +114,7 @@ def run():
     for file in backup.rglob("*"):
         if file.is_file():
             file.unlink()
-            
+
     for file in new_result.rglob("*"):
         if file.is_file():
             CatchURL.update(getLasturl(file))
@@ -137,7 +137,7 @@ def run():
     StockDatas_dict = {}
 
     for title, StockList in StockLists.items():
-        Line_print(f"Start Run\n{title}")
+        Telegram_print(f"Start Run\n{title}")
         # Get Data
         StockDatas = calculator(
             Database,
@@ -158,10 +158,12 @@ def run():
     )
     ResultOutput(new_result / Path("Institutional_TOP50"), InstitutionalDatas, EPSLists)
 
-    Line_print("Daily Run Finished")
+    Telegram_print("Daily Run Finished")
     UnderEST.NotifyUndersEST(UndersESTDict)
     NotifyMacroeconomics(Database)
-    Line_print("Down load link:\nCSV: http://54.205.241.96:8000/download/csv\nTXT: http://54.205.241.96:8000/download/txt")
+    Telegram_print(
+        "Down load link:\nCSV: http://54.205.241.96:8000/download/csv\nTXT: http://54.205.241.96:8000/download/txt"
+    )
 
 
 def daily_run():
@@ -177,9 +179,9 @@ def daily_run():
 
         remaining_time = next_time_run - taiwan_time
 
-        Line_print(f"Next run : {next_time_run}")
+        Telegram_print(f"Next run : {next_time_run}")
         time.sleep(remaining_time.total_seconds())
-        Line_print(f"Start Daily Run")
+        Telegram_print(f"Start Daily Run")
         run()
 
 

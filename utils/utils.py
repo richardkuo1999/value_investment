@@ -56,17 +56,16 @@ def dict2list(data):
     return result
 
 
-def Line_print(msg):
+def Telegram_print(msg):
     print(msg)
 
     with open("token.yaml", "r") as file:
         Token = yaml.safe_load(file)
 
-    url = "https://notify-api.line.me/api/notify"
-    token = Token["LineToken"]
-    headers = {"Authorization": "Bearer " + token}
-    data = {"message": msg}
-    data = requests.post(url, headers=headers, data=data)
+    token = Token["TelegramToken"]
+    chatID = Token["TelegramchatID"]
+    url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chatID}&text={msg}"
+    requests.get(url)
 
 
 def upload_files(folder_path, yamlToken, gdToken):
@@ -132,7 +131,7 @@ class UnderEST:
         msg = "Under Stimated\n"
         for No, (StockID, StockData) in enumerate(UndersESTDict.items(), start=0):
             msg += f"{StockData['代號']}{StockData['名稱']}: {UnderEST.get_expProfit(StockData):.1f}%\n"
-        Line_print(msg)
+        Telegram_print(msg)
         return msg
 
     @staticmethod

@@ -16,11 +16,13 @@ class ANUE:
     def crwal_estimate_eps(self):
         stock_id = self.stock_id
         CatchURL = self.CatchURL
+        lastSuccess = [
+            None,
+            None,
+            datetime(1970, 1, 1, 0, 0, 0),
+            None,
+        ]
         level = self.level
-        estprice = None
-        EPS = None
-        DataTime = datetime(1970, 1, 1, 0, 0, 0)
-        url = None
         tm_yday = float(datetime.now().timetuple().tm_yday)
 
         # Get the cnyes news
@@ -50,10 +52,18 @@ class ANUE:
                     "url": CatchURL[stock_id]["url"],
                 }
             )
+            lastSuccess = [
+                CatchURL[stock_id]["estprice"],
+                CatchURL[stock_id]["eps"],
+                CatchURL[stock_id]["DataTime"],
+                CatchURL[stock_id]["url"],
+            ]
 
         sorted_data = sorted(urldata, key=lambda x: x["date"], reverse=True)
         # print(sorted_data)
         for i, timeurl in enumerate(sorted_data):
+            estprice = None
+            DataTime = datetime(1970, 1, 1, 0, 0, 0)
             try:
                 DataTime, url = timeurl["date"], timeurl["url"]
                 print(DataTime, ":", url)
@@ -61,13 +71,12 @@ class ANUE:
                 webtitle = soup.find(id="article-container").text
 
                 if webtitle.split("(")[1].split("-")[0] != str(stock_id):
-                    url = None
                     continue
 
                 try:
                     estprice = webtitle.split("預估目標價為")[1].split("元")[0]
                 except:
-                    pass
+                    continue
 
                 rows = soup.table.find_all("tr")  # 提取表格的行
                 headers = [
@@ -86,6 +95,7 @@ class ANUE:
                     EPSeveryear.append(row_data)
 
                 for idx, s in enumerate(headers):
+                    EPS = None
                     if str(datetime.now().year) in s:
                         ThisYearEPSest = float(EPSeveryear[level][idx].split("(")[0])
                         if idx < len(headers) - 1:
@@ -101,8 +111,8 @@ class ANUE:
                         return (float(estprice), EPS, DataTime, url)
             except Exception as e:
                 print(f"Error processing data: {e}, {url}")
-                DataTime = datetime(1970, 1, 1, 0, 0, 0)
-        return estprice, EPS, DataTime, url
+                continue
+        return lastSuccess
 
     def get_search_results(self, num_results=10):
         # Get the cnyes news

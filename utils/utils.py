@@ -104,6 +104,8 @@ def getLasturl(csvpath):
             data[str(row["代號"])] = {
                 "DataTime": datetime.strptime(row["資料時間"], "%Y/%m/%d"),
                 "url": row["ANUEurl"],
+                "eps": row["EPS(EST)"],
+                "estprice": row["Factest目標價"],
             }
     return data
 
@@ -139,5 +141,9 @@ class UnderEST:
 
     @staticmethod
     def get_expProfit(StockData):
-        eps = StockData["Anue"]["EPS(EST)"] if StockData["Anue"]["EPS(EST)"] else StockData["EPS(TTM)"]
+        eps = (
+            StockData["Anue"]["EPS(EST)"]
+            if StockData["Anue"]["EPS(EST)"]
+            else StockData["EPS(TTM)"]
+        )
         return getProfit(getTarget(StockData["SDESTPER"][4], eps), StockData["價格"])

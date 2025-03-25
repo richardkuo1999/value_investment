@@ -17,7 +17,6 @@ from calculator.Index import NotifyMacroeconomics
 from utils.utils import Telegram_print, UnderEST, getLasturl
 from calculator.stock_select import get_etf_constituents, get_institutional_top50
 
-ETFList = ["0050", "006201", "0051"]
 # ETFList = []
 User_Choice = [
     "1560",
@@ -49,8 +48,10 @@ User_Choice = [
     "8936",
     "9914",
 ]
-# User_Choice = ["8069"]
-
+# ETFList = ["006201"]
+# DAILLY_RUN = False
+DAILLY_RUN = True
+ETFList = ["User_Choice", "0051", "0050", "006201"]
 
 def Individual_search(StockLists, EPSLists):
 
@@ -107,17 +108,25 @@ def run():
     new_result = Path("results")
     backup = Path("backup")
     CatchURL = {}
+    StockLists = {}
     # create folder
-    new_result.mkdir(parents=True, exist_ok=True)
-    backup.mkdir(parents=True, exist_ok=True)
-    for file in backup.rglob("*"):
-        if file.is_file():
-            file.unlink()
+    if DAILLY_RUN:
+        new_result.mkdir(parents=True, exist_ok=True)
+        backup.mkdir(parents=True, exist_ok=True)
+        for file in backup.rglob("*"):
+            if file.is_file():
+                file.unlink()
 
     for file in new_result.rglob("*"):
         if file.is_file():
-            CatchURL.update(getLasturl(file))
-            file.rename(backup / file.name)
+            if DAILLY_RUN:
+                CatchURL.update(getLasturl(file))
+                file.rename(backup / file.name)
+            else:
+                for etf in ETFList:
+                    CatchURL.update(getLasturl(Path(backup, f"{etf}.csv")))
+                    break
+
 
     # Read the caculate Parameter
     if ParameterPath.exists():
@@ -127,10 +136,11 @@ def run():
         Token = yaml.safe_load(file)
     Database = Finminder(Token)
 
-    StockLists = {"User_Choice": User_Choice}
-
     for etf in ETFList:
-        StockLists[etf] = get_etf_constituents(etf)
+        if etf == "User_Choice":
+            StockLists["User_Choice"] = User_Choice
+        else:
+            StockLists[etf] = get_etf_constituents(etf)
 
     EPSLists = None
     StockDatas_dict = {}

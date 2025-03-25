@@ -63,7 +63,6 @@ class Stock_Predictor:
 
 
 def calculator(Database, StockList, parameter, CatchURL={}):
-    time.sleep(60)
     StockData = {}
     for i, stock_id in enumerate(StockList, start=1):
         No = i
@@ -136,6 +135,6 @@ def calculator(Database, StockList, parameter, CatchURL={}):
 
         # =======================================================================
 
-        # time.sleep(5)
+        time.sleep(1)
         # print(StockData[stock_id])
     return StockData

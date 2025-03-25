@@ -147,6 +147,7 @@ def run():
         )
         ResultOutput(new_result / Path(title), StockDatas)
         StockDatas_dict.update(StockDatas)
+        time.sleep(120)
 
     # get Understimated
     UndersESTDict = UnderEST.getUnderstimated(StockDatas_dict)

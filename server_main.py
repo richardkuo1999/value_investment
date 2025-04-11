@@ -118,7 +118,7 @@ def run():
                 file.unlink()
 
     for file in new_result.rglob("*"):
-        if file.is_file():
+        if file.is_file() and file.stem != "Individual":
             if DAILLY_RUN:
                 CatchURL.update(getLasturl(file))
                 file.rename(backup / file.name)

@@ -80,14 +80,14 @@ def txtOutput(result_path, StockDatas, EPSLists=None):
         text = ""
         fw = result_path.with_suffix(".txt")
         ClossPrice = StockData["價格"]
+        if EPSLists and EPSLists[No]:
+            eps = EPSLists[No]
         eps = (
             StockData["Anue"]["EPS(EST)"]
             if StockData["Anue"]["EPS(EST)"]
             else StockData["EPS(TTM)"]
         )
         bps = StockData["BPS"]
-        if EPSLists:
-            eps = EPSLists[No]
 
         text += f"""
 ============================================================================

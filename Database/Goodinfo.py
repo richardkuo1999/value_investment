@@ -9,8 +9,9 @@ headers = {
 class Goodinfo:
     def __init__(self, stock_id: str) -> None:
         self.stock_id = stock_id
+        self.StockInfo = self.get_company_info()
         self.TTMPEG = self.get_peg()
-        self.CompanyINFO = self.get_company_info()
+        self.CompanyINFO = self.StockInfo['主要業務']
 
     def get_peg(self) -> str | None:
         """
@@ -40,4 +41,13 @@ class Goodinfo:
     def get_company_info(self) -> str | None:
         url = f"https://goodinfo.tw/tw/BasicInfo.asp?STOCK_ID={self.stock_id}"
         soup = fetch_webpage(url, headers)
-        return soup.find_all("td", {"bgcolor": "white", "colspan": "3"}, "p")[14].text
+        # Create a dictionary to store company information
+        info_dict = {}
+        # Extracting company information from the webpage
+        keys = soup.find_all("th", {"class": "bg_h1"}, "nobr")
+        values =  soup.find_all("td", {"bgcolor": "white"}, "p")
+        # The keys and values are extracted from the HTML elements
+        for k, v in zip(keys, values):
+            info_dict[k.text.strip()] = v.text.strip()
+
+        return info_dict

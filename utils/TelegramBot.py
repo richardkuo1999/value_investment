@@ -2,6 +2,10 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 from server_main import Individual_search
+from Database.MoneyDJ import MoneyDJ
+from groq import Groq
+import yaml
+
 # 定義 /start 命令處理器
 async def start(update: Update, context):
     # 檢查訊息來源是群組還是私人訊息
@@ -35,6 +39,31 @@ async def esti(update: Update, context):
     else:
         pass
 
+async def info(update: Update, context):
+    ticker = context.args[0] if context.args else None
+    GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
+    DJ = MoneyDJ()
+    groq = Groq(api_key=GROQ_API_KEY)
+
+    wiki_result = DJ.get_wiki_result(ticker)
+    # condition = "幫我摘要內容成 5 個要點"
+    condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
+    # condition = "幫我找出投資機會"
+    prompt = "\n" + condition  + "，並且只能用繁體中文回答。\n"
+    response = groq.chat.completions.create(
+        model = 'llama3-70b-8192',
+        messages=[
+            {"role": "user", "content": wiki_result + prompt},
+        ]
+    )
+    content = response.choices[0].message.content
+
+    # 檢查訊息來源是群組還是私人訊息
+    if update.message.chat.type == "group":
+        await update.message.reply_text(content)
+    else:
+        await update.message.reply_text('To use this bot, just type a message, or use /start and /help.')
+        
 # 定義普通文字訊息處理器
 async def echo(update: Update, context):
     print(f"Received message: {update.message.text}")
@@ -50,7 +79,7 @@ async def error(update: Update, context):
 
 def main():
     # 設置你的 Token
-    TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+    TOKEN = yaml.safe_load(open('token.yaml'))["TelegramToken"][0]
 
     # 初始化 Application
     application = Application.builder().token(TOKEN).build()
@@ -59,6 +88,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(CommandHandler("esti", esti))
+    application.add_handler(CommandHandler("info", info))
 
     # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
     # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))

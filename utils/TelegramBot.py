@@ -1,10 +1,11 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from groq import Groq
+import yaml
 
 from server_main import Individual_search
 from Database.MoneyDJ import MoneyDJ
-from groq import Groq
-import yaml
+from utils.AI import GroqAI
 
 # 定義 /start 命令處理器
 async def start(update: Update, context):
@@ -41,22 +42,13 @@ async def esti(update: Update, context):
 
 async def info(update: Update, context):
     ticker = context.args[0] if context.args else None
-    GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
     DJ = MoneyDJ()
-    groq = Groq(api_key=GROQ_API_KEY)
-
+    chatbot = GroqAI()
     wiki_result = DJ.get_wiki_result(ticker)
-    # condition = "幫我摘要內容成 5 個要點"
     condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
-    # condition = "幫我找出投資機會"
-    prompt = "\n" + condition  + "，並且只能用繁體中文回答。\n"
-    response = groq.chat.completions.create(
-        model = 'llama3-70b-8192',
-        messages=[
-            {"role": "user", "content": wiki_result + prompt},
-        ]
-    )
-    content = response.choices[0].message.content
+    prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
+
+    content = chatbot.talk(prompt, wiki_result, reasoning=True)
 
     # 檢查訊息來源是群組還是私人訊息
     if update.message.chat.type == "group":

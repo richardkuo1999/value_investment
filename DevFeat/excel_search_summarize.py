@@ -3,23 +3,23 @@ import requests
 import fitz  # PyMuPDF
 import re
 from tqdm import tqdm
-from groq import Groq
-import yaml
+from utils.AI import GroqAI
+from utils.Logger import setup_logger
 
-GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
-client = Groq(api_key=GROQ_API_KEY)
+client = GroqAI()
+logger = setup_logger()
 
 def download_pdf(link, output_path="downloaded.pdf"):
     # print(link)
     # 使用正則表達式提取 file_id
     file_id = re.search(r'/d/([a-zA-Z0-9_-]+)', link)
     if file_id:
-        print("File ID:", file_id.group(1))
+        logger.debug(f"File ID: {file_id.group(1)}")
     else:
-        print("無法提取 File ID")
+        logger.error("無法提取 File ID")
 
     download_url = f'https://drive.google.com/uc?export=download&id={file_id.group(1)}'
-    print(download_url)
+    logger.debug(f"Download URL: {download_url}")
     response = requests.get(download_url, stream=True)
     
     # 檢查請求是否成功
@@ -28,10 +28,10 @@ def download_pdf(link, output_path="downloaded.pdf"):
         with open(output_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=128):
                 f.write(chunk)
-        print("PDF 下載完成!")
+        logger.debug("PDF 下載完成!")
         return True
     else:
-        print("下載失敗，錯誤碼:", response.status_code)
+        logger.error(f"下載失敗，錯誤碼: {response.status_code}")
         return False
     
 def extract_pdf():
@@ -39,6 +39,8 @@ def extract_pdf():
     with fitz.open("downloaded.pdf") as doc:        
         for page in doc:
             text += page.get_text()
+            logger.warning("Read first page only")
+            break # 只讀取第一頁
     return text
 
 def search_excel(stock_id):
@@ -47,14 +49,13 @@ def search_excel(stock_id):
     sheet_id = "15UhRGMsukVopC2QExKQrJ1AmWiD24UZKPJ55s-owmKg"
     gid = "0"
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
-
+    logger.warning(f"This excel format will be changed, please check the link when error occurs.")
     # 使用新版 pandas 的參數
     df = pd.read_csv(url, on_bad_lines='skip', engine='python')
     columns = list(df.columns)
 
-    # 將最後兩個欄位名稱改為 'Report Link' 和 'Count'
-    columns[-2] = 'Report Link'
-    columns[-1] = 'Count'
+    # 將最後1個欄位名稱改為 'Report Link'
+    columns[-1] = 'Report Link'
     df.columns = columns
 
     df_filtered = df[df['股票代號'].astype(str).str.contains(stock_id, na=False)]
@@ -80,20 +81,17 @@ def chunk_text(text, max_length=7000):
     return chunks
 
 
-def summarize_chunk(chunk):
+def summarize(chunk):
     global client
     try:
-        response = client.chat.completions.create(
-            model="llama3-70b-8192",
-            messages=[
-                {"role": "system", "content": "你是一位摘要助手，擅長將長文章壓縮成精簡摘要。"},
-                {"role": "user", "content": f"請幫我摘要，且只能用中文回答我：\n{chunk}"}
-            ]
-        )
-        res = response.choices[0].message.content
-        return res
+        condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
+        prompt = "\n" + condition  + "，並且使用繁體中文回答。\n"
+        
+        response = client.talk(prompt, chunk, reasoning=True)
+        return response
+    
     except Exception as e:
-        print("摘要失敗:", e)
+        logger.error(f"摘要失敗: {e['error']['code'], e['error']['message']}")
         return ""
 
 def main():
@@ -106,15 +104,18 @@ def main():
             text = extract_pdf()
             chunks = chunk_text(text)
             for chunk in tqdm(chunks):
-                res = summarize_chunk(chunk)
+                res = summarize(chunk)
                 summarize_list.append(res)
-                # print(res)
 
-        if idx == 0: # 逐步測試
+        if idx == 7 : # 只讀取前8個報告
+            logger.warning("Read first 5 reports only")
             break
-    for summary in summarize_list:
-        print(summary)
 
+    summary_all = "\n".join(summarize_list)
+    print(len(summary_all))
+    logger.info(f"Summarize again")
+    summary = summarize(summary_all)
+    logger.info(f"Summarize: {summary}")
 
 if __name__ == "__main__":
     main()

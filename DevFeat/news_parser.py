@@ -7,7 +7,7 @@ import yaml
 GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
 
 class NewsParser:
-    def __init__(self, url):
+    def __init__(self, url=None):
 
         self.groq = Groq(api_key=GROQ_API_KEY)
         self.model = "llama3-70b-8192"
@@ -83,7 +83,7 @@ class NewsParser:
         # print("📰 新聞內文：\n", content)
         return {"title": title, "content": content}
 
-    def fetch_news_content(self, url=None):
+    def fetch_news_content(self, url=None, website=None):
         # 根據網址解析新聞內容
         soup = self.news_request(self.url if url is None else url)
         if isinstance(soup, dict) and "error" in soup:
@@ -91,13 +91,13 @@ class NewsParser:
             return
         # 判斷網址屬於哪個網站
         for key, func in self.parser_dict.items():
-            if key in url:
+            if key in url or key in website:
                 return func(soup)
         
         print("不支援的網站")
         return None
 
-    def fetch_news_list(self, website, url=None):
+    def fetch_news_list(self, website, news_number=10, url=None):
         """
         Fetches and processes a list of news articles from a specified website.
         Args:
@@ -131,7 +131,7 @@ class NewsParser:
             return {"error": "不支援的網站"}
         
         soup = self.news_request(self.url if url is None else url)
-
+        news_result = []
         # 如果請求失敗，則返回錯誤訊息
         # 這裡的錯誤訊息是從 news_request 函數返回的
         # 如果請求成功，則繼續處理
@@ -141,7 +141,7 @@ class NewsParser:
         # Get all news items for udn
         if website == "udn":
             news_items = soup.select(".story-list__news")
-            for item in news_items:
+            for idx, item in enumerate(news_items[:news_number]):
                 # Get the title tag and link
                 title_tag = item.select_one("h2 a")
                 if title_tag:
@@ -150,13 +150,13 @@ class NewsParser:
                     print(f"\n📌 {title}\n🔗 {link}\n")
                     # Fetch the news content
                     news_dict = self.fetch_news_content(link)
-                    # Get the summary
-                    response = self.groq_summary(news_dict['content'])
-                    print("📰 AI摘要：\n", response.choices[0].message.content)
+                    news_dict['url'] = link
+                    news_result.append(news_dict)
 
                     time.sleep(5)  # 避免過於頻繁的請求
         else:
             print("不支援的網站")
+        return news_result
 
 if __name__ == "__main__":
     # Example usage

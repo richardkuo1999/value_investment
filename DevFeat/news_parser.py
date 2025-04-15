@@ -7,22 +7,20 @@ import yaml
 GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
 
 class NewsParser:
-    def __init__(self, url=None):
+    def __init__(self):
 
         self.groq = Groq(api_key=GROQ_API_KEY)
         self.model = "llama3-70b-8192"
         # ========================================
-        self.url = url
-        self.supported_website = ['udn', 'cnyes']
         # Create a dictionary to map website to parser function
-        self.parser_dict = {'udn' : self.udn_news_parser, 'cnyes' : self.cnyes_news_parser}
+        self.parser_dict = {'udn' : self.udn_news_parser, 'cnyes' : self.cnyes_news_parser, 'moneydj' : self.moneyDJ_news_parser}
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         }
 
-    def is_supported_website(self, website):
+    def is_supported_website(self, url):
         # 檢查網站是否支援
-        return any(website in site for site in self.supported_website)
+        return any(site in url for site in self.parser_dict.keys())
     
     def news_request(self, url):
         """
@@ -64,10 +62,20 @@ class NewsParser:
             ]
         )
         return response
+    
+    def moneyDJ_news_parser(self, soup):
+        # 解析 MONEYDJ 的新聞
+        print("解析 MONEYDJ 的新聞")
+        title = soup.find('h1').get_text(strip=True)
+        paragraphs = soup.find('article').find_all('p')
+        content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
+        # print("📌 新聞標題：", title)
+        # print("📰 新聞內文：\n", content)
+        return {"title": title, "content": content}
 
     def udn_news_parser(self, soup):
-        # 解析 UDN 的新聞
-        print("解析 UDN 的新聞")
+        # 解析 MONEY.UDN 的新聞
+        print("解析 MONEY UDN 的新聞")
         title = soup.find('h1').get_text(strip=True)
         paragraphs = soup.find('section', class_="article-body__editor").find_all('p')  # 內文區塊
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
@@ -83,21 +91,21 @@ class NewsParser:
         # print("📰 新聞內文：\n", content)
         return {"title": title, "content": content}
 
-    def fetch_news_content(self, url=None, website=None):
+    def fetch_news_content(self, url):
         # 根據網址解析新聞內容
-        soup = self.news_request(self.url if url is None else url)
+        soup = self.news_request(url)
         if isinstance(soup, dict) and "error" in soup:
             print(soup["error"])
             return
         # 判斷網址屬於哪個網站
         for key, func in self.parser_dict.items():
-            if key in url or key in website:
+            if key in url:
                 return func(soup)
         
         print("不支援的網站")
         return None
 
-    def fetch_news_list(self, website, news_number=10, url=None):
+    def fetch_news_list(self, url, news_number=1):
         """
         Fetches and processes a list of news articles from a specified website.
         Args:
@@ -111,11 +119,11 @@ class NewsParser:
                   anything but prints the news titles, links, and AI-generated summaries.
         """
         # 檢查網站是否支援
-        if not self.is_supported_website(website):
+        if not self.is_supported_website(url):
             print("不支援的網站")
             return {"error": "不支援的網站"}
         
-        soup = self.news_request(self.url if url is None else url)
+        soup = self.news_request(url)
         news_result = []
         # 如果請求失敗，則返回錯誤訊息
         # 這裡的錯誤訊息是從 news_request 函數返回的
@@ -124,20 +132,33 @@ class NewsParser:
             print(soup["error"])
             return
         # Get all news items for udn
-        if website == "udn":
+        if "udn" in url:
             news_items = soup.select(".story-headline-wrapper")
             for idx, item in enumerate(news_items[:news_number]):
                 # Get the title tag and link
                 title_tag = item.select_one("a")
                 if title_tag:
                     title = title_tag.get('title').strip()
-                    link = title_tag.get("href")
+                    link  = title_tag.get("href")
                     print(f"\n📌 {title}\n🔗 {link}\n")
                     # Fetch the news content
                     news_dict = self.fetch_news_content(link)
                     news_dict['url'] = link
                     news_result.append(news_dict)
 
+                    time.sleep(5)  # 避免過於頻繁的請求
+        elif "moneydj" in url:
+            news_items = soup.select(".forumgrid")
+            for idx, item in enumerate(news_items[:news_number]):
+                title_tag = item.select_one("a")
+                if title_tag:
+                    title = title_tag.get('title').strip()
+                    link  = "https://www.moneydj.com" + title_tag.get("href")
+                    print(f"\n📌 {title}\n🔗 {link}\n")
+                    # Fetch the news content
+                    news_dict = self.fetch_news_content(link)
+                    news_dict['url'] = link
+                    news_result.append(news_dict)
                     time.sleep(5)  # 避免過於頻繁的請求
         else:
             print("不支援的網站")

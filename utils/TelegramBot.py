@@ -18,6 +18,10 @@ def shorten_url_tinyurl(long_url):
     response = requests.get(api_url, params=params)
     return response.text
 
+def escape_markdown_v2(text: str) -> str:
+    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    return ''.join(['\\' + c if c in escape_chars else c for c in text])
+
 async def set_main_menu(application):
     commands = [
         BotCommand("start", "開始使用機器人"),
@@ -78,37 +82,41 @@ async def info(update: Update, context):
         await update.message.reply_text('To use this bot, just type a message, or use /start and /help.')
 
 # async def news(update: Update, context):
-async def send_news():
+async def send_news(urls):
 
-    url = 'https://money.udn.com/rank/newest/1001/0'
-    NP = NewsParser(url)
+    NP = NewsParser()
     bot = Bot(token=yaml.safe_load(open('token.yaml'))["TelegramToken"][0])
-    if not hasattr(send_news, "title_last"):
-        send_news.title_last = ""  # 初始化靜態變數
 
-    res_list = NP.fetch_news_list('udn', news_number=1)
-    for article in res_list:
+    if not hasattr(send_news, "titles"):
+        send_news.titles = ["" for _ in range(len(urls))]
 
-        title = article['title']
-        if title == send_news.title_last:
-            break
-        send_news.title_last = title
+    for idx, url in enumerate(urls):
+        res_list = NP.fetch_news_list(url)
+        for article in res_list:
 
-        text = f"📰[{title}]({article['url']})"
-        short_url = shorten_url_tinyurl(article['url'])
+            title = article['title']
+            if send_news.titles[idx] == title:
+                break
+            send_news.titles[idx] = title
 
-        keyboard = [[InlineKeyboardButton("🔍 看摘要", callback_data=short_url)]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await bot.send_message(chat_id=yaml.safe_load(open('token.yaml'))["ChatID"][0]
-                                , text=text
-                                ,parse_mode='MarkdownV2'
-                                , reply_markup=reply_markup)
+            text = f"📰[{escape_markdown_v2(title)}]({article['url']})"
+            short_url = shorten_url_tinyurl(article['url'])
+
+            keyboard = [[InlineKeyboardButton("🔍 看摘要", callback_data=short_url)]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await bot.send_message(chat_id=yaml.safe_load(open('token.yaml'))["ChatID"][0]
+                                    , text=text
+                                    ,parse_mode='MarkdownV2'
+                                    , reply_markup=reply_markup)
         
 
 def send_news_forever():
+    
+    urls = ['https://money.udn.com/rank/newest/1001/0', 
+            'https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=mb010000']
     while True:
-        asyncio.run(send_news())
-        time.sleep(60) # 每分鐘發送一次新聞
+        asyncio.run(send_news(urls))
+        time.sleep(10) # 每10秒發送一次新聞
 
 # 定義普通文字訊息處理器
 async def echo(update: Update, context):

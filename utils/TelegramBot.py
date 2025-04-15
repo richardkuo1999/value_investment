@@ -135,8 +135,9 @@ async def summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user = query.from_user
     await query.answer(text="處理中...，以私人回覆方式傳送摘要")
+    response = requests.head(query.data, allow_redirects=True) # 取得最終網址
     
-    article = NP.fetch_news_content(query.data, website="udn")
+    article = NP.fetch_news_content(response.url)
     content = article['content']
     summary = groq.talk(prompt="幫我摘要內容200字以內", content=content, reasoning=True)
 

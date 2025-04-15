@@ -9,7 +9,7 @@ class GroqAI:
     def __init__(self):
         api_key = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
         self.groq = Groq(api_key=api_key)
-        self.model = 'deepseek-r1-distill-qwen-32b' # Default model
+        self.model = 'deepseek-r1-distill-llama-70b' # Default model
 
     def switch_model(self):
         print()

@@ -69,7 +69,7 @@ class NewsParser:
         # 解析 UDN 的新聞
         print("解析 UDN 的新聞")
         title = soup.find('h1').get_text(strip=True)
-        paragraphs = soup.find('section', class_="article-content__editor").find_all('p')  # 內文區塊
+        paragraphs = soup.find('section', class_="article-body__editor").find_all('p')  # 內文區塊
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
         # print("📌 新聞標題：", title)
         # print("📰 新聞內文：\n", content)
@@ -109,21 +109,6 @@ class NewsParser:
                   is an issue with the request.
             None: If the news fetching and processing are successful, the function does not return 
                   anything but prints the news titles, links, and AI-generated summaries.
-        Behavior:
-            - Checks if the specified website is supported. If not, prints an error message and returns 
-              an error dictionary.
-            - Sends a request to fetch the HTML content of the news page.
-            - For the "udn" website:
-                - Extracts news items from the page.
-                - Prints the title and link for each news item.
-                - Fetches the content of each news article.
-                - Generates and prints an AI-generated summary of the article.
-                - Introduces a delay between requests to avoid overloading the server.
-            - For unsupported websites, prints an error message.
-        Notes:
-            - The function relies on helper methods such as `is_supported_website`, `news_request`, 
-              `fetch_news_content`, and `groq_summary`.
-            - The function includes a delay (`time.sleep(5)`) to prevent sending requests too frequently.
         """
         # 檢查網站是否支援
         if not self.is_supported_website(website):
@@ -140,13 +125,13 @@ class NewsParser:
             return
         # Get all news items for udn
         if website == "udn":
-            news_items = soup.select(".story-list__news")
+            news_items = soup.select(".story-headline-wrapper")
             for idx, item in enumerate(news_items[:news_number]):
                 # Get the title tag and link
-                title_tag = item.select_one("h2 a")
+                title_tag = item.select_one("a")
                 if title_tag:
-                    title = title_tag.text.strip()
-                    link = "https://udn.com" + title_tag.get("href")
+                    title = title_tag.get('title').strip()
+                    link = title_tag.get("href")
                     print(f"\n📌 {title}\n🔗 {link}\n")
                     # Fetch the news content
                     news_dict = self.fetch_news_content(link)

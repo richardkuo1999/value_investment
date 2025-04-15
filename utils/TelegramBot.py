@@ -80,7 +80,7 @@ async def info(update: Update, context):
 # async def news(update: Update, context):
 async def send_news():
 
-    url = 'https://udn.com/news/breaknews/1/5#breaknews'
+    url = 'https://money.udn.com/rank/newest/1001/0'
     NP = NewsParser(url)
     bot = Bot(token=yaml.safe_load(open('token.yaml'))["TelegramToken"][0])
     if not hasattr(send_news, "title_last"):
@@ -158,7 +158,7 @@ def main():
     application.add_error_handler(error)
 
     # asyncio.run(set_main_menu(application))
-    set_main_menu(application)
+    # set_main_menu(application)
 
     thread = threading.Thread(target=send_news_forever)
     thread.daemon = True  # 這樣主程序退出時，這個 thread 也會自動退出
@@ -168,6 +168,5 @@ def main():
     application.run_polling()
 
 if __name__ == '__main__':
-    # asyncio.run(send_news())
     main()
 

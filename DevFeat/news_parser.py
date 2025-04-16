@@ -3,14 +3,16 @@ from bs4 import BeautifulSoup
 from groq import Groq
 import time
 import yaml
+from utils.Logger import setup_logger
 # Groq API Key
 GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
 
 class NewsParser:
     def __init__(self):
-
+        self.logger = setup_logger()
         self.groq = Groq(api_key=GROQ_API_KEY)
         self.model = "llama3-70b-8192"
+        self.logger.info(f"model = {self.model}")
         # ========================================
         # Create a dictionary to map website to parser function
         self.parser_dict = {'udn' : self.udn_news_parser, 'cnyes' : self.cnyes_news_parser, 'moneydj' : self.moneyDJ_news_parser}
@@ -43,10 +45,10 @@ class NewsParser:
             soup = BeautifulSoup(response.text, 'html.parser')
             return soup
         except requests.exceptions.RequestException as e:
-            print(f"HTTP 請求錯誤: {e}")
+            self.logger.error(f"HTTP 請求錯誤: {e}")
             return {"error": "HTTP 請求失敗"}
         except AttributeError as e:
-            print(f"解析錯誤: {e}")
+            self.logger.error(f"解析錯誤: {e}")
             return {"error": "無法解析標題或內容"}
 
     
@@ -65,17 +67,17 @@ class NewsParser:
     
     def moneyDJ_news_parser(self, soup):
         # 解析 MONEYDJ 的新聞
-        print("解析 MONEYDJ 的新聞")
+        self.logger.info("解析 MONEYDJ 的新聞")
         title = soup.find('h1').get_text(strip=True)
         paragraphs = soup.find('article').find_all('p')
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
-        # print("📌 新聞標題：", title)
-        # print("📰 新聞內文：\n", content)
+        self.logger.debug("📌 新聞標題：{title}")
+        self.logger.debug("📰 新聞內文：{content}\n")
         return {"title": title, "content": content}
 
     def udn_news_parser(self, soup):
         # 解析 MONEY.UDN 的新聞
-        print("解析 MONEY UDN 的新聞")
+        self.logger.info("解析 MONEY UDN 的新聞")
         title = soup.find('h1').get_text(strip=True)
         paragraphs = soup.find('section', class_="article-body__editor").find_all('p')  # 內文區塊
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
@@ -95,14 +97,14 @@ class NewsParser:
         # 根據網址解析新聞內容
         soup = self.news_request(url)
         if isinstance(soup, dict) and "error" in soup:
-            print(soup["error"])
+            self.logger.error(soup["error"])
             return
         # 判斷網址屬於哪個網站
         for key, func in self.parser_dict.items():
             if key in url:
                 return func(soup)
         
-        print("不支援的網站")
+        self.logger.error("不支援的網站")
         return None
 
     def fetch_news_list(self, url, news_number=1):
@@ -120,7 +122,7 @@ class NewsParser:
         """
         # 檢查網站是否支援
         if not self.is_supported_website(url):
-            print("不支援的網站")
+            self.logger.error("不支援的網站")
             return {"error": "不支援的網站"}
         
         soup = self.news_request(url)
@@ -140,11 +142,14 @@ class NewsParser:
                 if title_tag:
                     title = title_tag.get('title').strip()
                     link  = title_tag.get("href")
-                    print(f"\n📌 {title}\n🔗 {link}\n")
-                    # Fetch the news content
-                    news_dict = self.fetch_news_content(link)
-                    news_dict['url'] = link
-                    news_result.append(news_dict)
+                    self.logger.info(f"\n📌 {title}\n🔗 {link}\n")
+                    # Fetch the news conten
+                    try:
+                        news_dict = self.fetch_news_content(link)
+                        news_dict['url'] = link
+                        news_result.append(news_dict)
+                    except Exception as e:
+                        self.logger.error(e);
 
                     time.sleep(5)  # 避免過於頻繁的請求
         elif "moneydj" in url:
@@ -154,11 +159,15 @@ class NewsParser:
                 if title_tag:
                     title = title_tag.get('title').strip()
                     link  = "https://www.moneydj.com" + title_tag.get("href")
-                    print(f"\n📌 {title}\n🔗 {link}\n")
+                    self.logger.info(f"\n📌 {title}\n🔗 {link}\n")
                     # Fetch the news content
-                    news_dict = self.fetch_news_content(link)
-                    news_dict['url'] = link
-                    news_result.append(news_dict)
+                    try:
+                        news_dict = self.fetch_news_content(link)
+                        news_dict['url'] = link
+                        news_result.append(news_dict)
+                    except Exception as e:
+                        self.logger.error(e)
+                       
                     time.sleep(5)  # 避免過於頻繁的請求
         else:
             print("不支援的網站")

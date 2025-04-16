@@ -12,6 +12,10 @@ from Database.MoneyDJ import MoneyDJ
 from utils.AI import GroqAI
 from DevFeat.news_parser import NewsParser
 
+# Global variable
+NP = NewsParser()
+news_data = {}
+
 def shorten_url_tinyurl(long_url):
     api_url = "http://tinyurl.com/api-create.php"
     params = {'url': long_url}
@@ -81,41 +85,72 @@ async def info(update: Update, context):
     else:
         await update.message.reply_text('To use this bot, just type a message, or use /start and /help.')
 
-# async def news(update: Update, context):
-async def send_news(urls):
-
-    NP = NewsParser()
+async def send_news():
+    
+    global news_data
     bot = Bot(token=yaml.safe_load(open('token.yaml'))["TelegramToken"][0])
+    text = ""
+    print("Send data trigger!!!!!!!!!!!!!!!!!!!!")
+    for typ, data in news_data.items():
+        text += f"{escape_markdown_v2(typ)}\n"
+        for news in data:
+            title = news['title']
+            url   = news['url']
+            text += f"📰[{(title)}]({url})"
 
-    if not hasattr(send_news, "titles"):
-        send_news.titles = ["" for _ in range(len(urls))]
+        print(text)
+        await bot.send_message(chat_id=yaml.safe_load(open('token.yaml'))["ChatID"][0]
+                                , text=text
+                                , parse_mode='MarkdownV2')
+        text = ""
+        print("Send done")
 
-    for idx, url in enumerate(urls):
-        res_list = NP.fetch_news_list(url)
+def send_news_trigger():
+    while True:
+        asyncio.run(send_news())
+        time.sleep(60*30) # 30 mins
+
+# async def news(update: Update, context):
+async def get_news(urls):
+
+    global NP, news_data
+    for news_type, url in urls.items():
+
+        res_list = NP.fetch_news_list(url, 1)
         for article in res_list:
 
             title = article['title']
-            if send_news.titles[idx] == title:
+            if any(title in news['title'] for news in news_data[news_type]):
                 break
-            send_news.titles[idx] = title
+            news_data[news_type].append(article)
 
-            text = f"📰[{escape_markdown_v2(title)}]({article['url']})"
-            short_url = shorten_url_tinyurl(article['url'])
+            # text = f"📰[{escape_markdown_v2(title)}]({article['url']})"
+            # short_url = shorten_url_tinyurl(article['url'])
 
-            keyboard = [[InlineKeyboardButton("🔍 看摘要", callback_data=short_url)]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await bot.send_message(chat_id=yaml.safe_load(open('token.yaml'))["ChatID"][0]
-                                    , text=text
-                                    ,parse_mode='MarkdownV2'
-                                    , reply_markup=reply_markup)
-        
+            # keyboard = [[InlineKeyboardButton("🔍 看摘要", callback_data=short_url)]]
+            # reply_markup = InlineKeyboardMarkup(keyboard)
+            # await bot.send_message(chat_id=yaml.safe_load(open('token.yaml'))["ChatID"][0]
+            #                         , text=text
+            #                         ,parse_mode='MarkdownV2'
+            #                         , reply_markup=reply_markup)
+            # print(f"Send message done.")
 
-def send_news_forever():
+def get_news_forever():
     
-    urls = ['https://money.udn.com/rank/newest/1001/0', 
-            'https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=mb010000']
+    global news_data
+    # set source 
+    src_urls = {'udn.產業' : 'https://money.udn.com/rank/newest/1001/5591/1', 
+                # 'udn.證券' : 'https://money.udn.com/rank/newest/1001/5590/1',
+                # 'udn.國際' : 'https://money.udn.com/rank/newest/1001/5588/1',
+                # 'udn.兩岸' : 'https://money.udn.com/rank/newest/1001/5589/1',
+                # 'udn.金融' : 'https://money.udn.com/rank/newest/1001/12017/1',
+                # 'udn.理財' : 'https://money.udn.com/rank/newest/1001/5592/1',
+                'moneydj.發燒頭條' : 'https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=mb010000'}
+    
+    news_data = { news_type : [] for news_type in src_urls.keys() } # initial news_data
     while True:
-        asyncio.run(send_news(urls))
+        asyncio.run(get_news(src_urls))
+        asyncio.run(send_news())
         time.sleep(10) # 每10秒發送一次新聞
 
 # 定義普通文字訊息處理器
@@ -128,10 +163,10 @@ async def echo(update: Update, context):
         await update.message.reply_text(f'You said: {update.message.text}')
 
 # 回傳摘要
-async def summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("✅ Callback handler triggered")
+    global NP
     groq = GroqAI()
-    NP = NewsParser()
     query = update.callback_query
     user = query.from_user
     await query.answer(text="處理中...，以私人回覆方式傳送摘要")
@@ -158,7 +193,7 @@ def main():
     application.add_handler(CommandHandler("help", help))
     application.add_handler(CommandHandler("esti", esti))
     application.add_handler(CommandHandler("info", info))
-    application.add_handler(CallbackQueryHandler(summarize))
+    application.add_handler(CallbackQueryHandler(button_cb))
 
     # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
     # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
@@ -169,9 +204,12 @@ def main():
     # asyncio.run(set_main_menu(application))
     # set_main_menu(application)
 
-    thread = threading.Thread(target=send_news_forever)
+    thread = threading.Thread(target=get_news_forever)
     thread.daemon = True  # 這樣主程序退出時，這個 thread 也會自動退出
     thread.start()
+    thread2 = threading.Thread(target=send_news_trigger)
+    thread2.daemon = True  # 這樣主程序退出時，這個 thread 也會自動退出
+    thread2.start()
 
     # 開始輪詢
     application.run_polling()

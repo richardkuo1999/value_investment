@@ -50,20 +50,6 @@ class NewsParser:
         except AttributeError as e:
             self.logger.error(f"解析錯誤: {e}")
             return {"error": "無法解析標題或內容"}
-
-    
-    def groq_summary(self, content):
-        condition = "幫我摘要內容成 5 個要點"
-        # condition = "500 字以內的摘要"
-        # condition = "幫我找出投資機會"
-        prompt = "\n" + condition  + "，並且只能用繁體中文回答。\n"
-        response = self.groq.chat.completions.create(
-            model = self.model,
-            messages=[
-                {"role": "user", "content": content + prompt},
-            ]
-        )
-        return response
     
     def moneyDJ_news_parser(self, soup):
         # 解析 MONEYDJ 的新聞
@@ -81,16 +67,16 @@ class NewsParser:
         title = soup.find('h1').get_text(strip=True)
         paragraphs = soup.find('section', class_="article-body__editor").find_all('p')  # 內文區塊
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
-        # print("📌 新聞標題：", title)
-        # print("📰 新聞內文：\n", content)
+        self.logger.debug("📌 新聞標題：{title}")
+        self.logger.debug("📰 新聞內文：\n{content}")
         return {"title": title, "content": content}
 
     def cnyes_news_parser(self, soup):
         # 解析 CNYES 的新聞
         title = soup.find('h1').text.strip()
         content = soup.find('main', class_='c1tt5pk2').text.strip()
-        # print("📌 新聞標題：", title)
-        # print("📰 新聞內文：\n", content)
+        self.logger.debug("📌 新聞標題：{title}")
+        self.logger.debug("📰 新聞內文：\n{title}")
         return {"title": title, "content": content}
 
     def fetch_news_content(self, url):
@@ -102,6 +88,7 @@ class NewsParser:
         # 判斷網址屬於哪個網站
         for key, func in self.parser_dict.items():
             if key in url:
+                self.logger.debug(f"website is {key}")
                 return func(soup)
         
         self.logger.error("不支援的網站")
@@ -170,7 +157,7 @@ class NewsParser:
                        
                     time.sleep(5)  # 避免過於頻繁的請求
         else:
-            print("不支援的網站")
+            self.logger.error("不支援的網站")
         return news_result
 
 if __name__ == "__main__":
@@ -182,4 +169,3 @@ if __name__ == "__main__":
     url = 'https://udn.com/news/breaknews/1/5#breaknews'
     # fetch_news_list(url, "udn")
     NP = NewsParser(url)
-    NP.fetch_news_list('udn')

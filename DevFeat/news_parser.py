@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from groq import Groq
 import time
 import yaml
+import feedparser
 from utils.Logger import setup_logger
 # Groq API Key
 GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
@@ -19,6 +20,21 @@ class NewsParser:
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         }
+    def rss_parser(self, url):
+        feed = feedparser.parse(url)
+        entry = feed.entries[0]
+        # if entry.link != latest_link:
+        #     latest_link = entry.link
+        #     print("🆕 有新文章！")
+        #     # 這邊你就可以呼叫 telegram bot 去推送
+        res_list = []
+        for entry in feed.entries:
+            # print(f"標題：{entry.title}")
+            # print(f"連結：{entry.link}")
+            # print(f"發布時間：{entry.published}")
+            # print("---")
+            res_list.append({'title' : entry.title, 'content' : "", 'url' : entry.link})
+        return res_list
 
     def is_supported_website(self, url):
         # 檢查網站是否支援
@@ -108,18 +124,18 @@ class NewsParser:
                   anything but prints the news titles, links, and AI-generated summaries.
         """
         # 檢查網站是否支援
-        if not self.is_supported_website(url):
-            self.logger.error("不支援的網站")
-            return {"error": "不支援的網站"}
+        # if not self.is_supported_website(url):
+        #     self.logger.error("不支援的網站")
+        #     return {"error": "不支援的網站"}
         
         soup = self.news_request(url)
         news_result = []
         # 如果請求失敗，則返回錯誤訊息
         # 這裡的錯誤訊息是從 news_request 函數返回的
         # 如果請求成功，則繼續處理
-        if isinstance(soup, dict) and "error" in soup:
-            print(soup["error"])
-            return
+        # if isinstance(soup, dict) and "error" in soup:
+        #     print(soup["error"])
+        #     return
         # Get all news items for udn
         if "udn" in url:
             news_items = soup.select(".story-headline-wrapper")
@@ -139,25 +155,24 @@ class NewsParser:
                         self.logger.error(e);
 
                     time.sleep(5)  # 避免過於頻繁的請求
-        elif "moneydj" in url:
-            news_items = soup.select(".forumgrid")
-            for idx, item in enumerate(news_items[:news_number]):
-                title_tag = item.select_one("a")
-                if title_tag:
-                    title = title_tag.get('title').strip()
-                    link  = "https://www.moneydj.com" + title_tag.get("href")
-                    self.logger.info(f"\n📌 {title}\n🔗 {link}\n")
-                    # Fetch the news content
-                    try:
-                        news_dict = self.fetch_news_content(link)
-                        news_dict['url'] = link
-                        news_result.append(news_dict)
-                    except Exception as e:
-                        self.logger.error(e)
-                       
-                    time.sleep(5)  # 避免過於頻繁的請求
         else:
-            self.logger.error("不支援的網站")
+            news_result = self.rss_parser(url)
+        # elif "moneydj" in url:
+        #     news_items = soup.select(".forumgrid")[0].find_all("a")
+        #     for idx, item in enumerate(news_items[:news_number]):
+
+        #         title = item.get('title').strip()
+        #         link  = "https://www.moneydj.com" + item.get("href")
+        #         self.logger.info(f"\n📌 {title}\n🔗 {link}\n")
+        #         # Fetch the news content
+        #         try:
+        #             news_dict = self.fetch_news_content(link)
+        #             news_dict['url'] = link
+        #             news_result.append(news_dict)
+        #         except Exception as e:
+        #             self.logger.error(e)
+                    
+            time.sleep(5)  # 避免過於頻繁的請求
         return news_result
 
 if __name__ == "__main__":

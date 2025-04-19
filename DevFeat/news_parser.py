@@ -29,11 +29,11 @@ class NewsParser:
         #     # 這邊你就可以呼叫 telegram bot 去推送
         res_list = []
         for entry in feed.entries:
-            # print(f"標題：{entry.title}")
-            # print(f"連結：{entry.link}")
-            # print(f"發布時間：{entry.published}")
-            # print("---")
-            res_list.append({'title' : entry.title, 'content' : "", 'url' : entry.link})
+            self.logger.debug(f"標題：{entry.title}")
+            self.logger.debug(f"連結：{entry.link}")
+            self.logger.debug(f"發布時間：{entry.published}")
+            self.logger.debug("---")
+            res_list.append({'title' : entry.title, 'url' : entry.link, "src" : "rss"})
         return res_list
 
     def is_supported_website(self, url):
@@ -70,30 +70,24 @@ class NewsParser:
     def moneyDJ_news_parser(self, soup):
         # 解析 MONEYDJ 的新聞
         self.logger.info("解析 MONEYDJ 的新聞")
-        title = soup.find('h1').get_text(strip=True)
         paragraphs = soup.find('article').find_all('p')
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
-        self.logger.debug("📌 新聞標題：{title}")
-        self.logger.debug("📰 新聞內文：{content}\n")
-        return {"title": title, "content": content}
+        self.logger.debug(f"📰 新聞內文：{content}\n")
+        return content
 
     def udn_news_parser(self, soup):
         # 解析 MONEY.UDN 的新聞
         self.logger.info("解析 MONEY UDN 的新聞")
-        title = soup.find('h1').get_text(strip=True)
         paragraphs = soup.find('section', class_="article-body__editor").find_all('p')  # 內文區塊
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
-        self.logger.debug("📌 新聞標題：{title}")
-        self.logger.debug("📰 新聞內文：\n{content}")
-        return {"title": title, "content": content}
+        self.logger.debug(f"📰 新聞內文：\n{content}")
+        return content
 
     def cnyes_news_parser(self, soup):
         # 解析 CNYES 的新聞
-        title = soup.find('h1').text.strip()
         content = soup.find('main', class_='c1tt5pk2').text.strip()
-        self.logger.debug("📌 新聞標題：{title}")
-        self.logger.debug("📰 新聞內文：\n{title}")
-        return {"title": title, "content": content}
+        self.logger.debug(f"📰 新聞內文：\n{content}")
+        return content
 
     def fetch_news_content(self, url):
         # 根據網址解析新聞內容
@@ -101,6 +95,7 @@ class NewsParser:
         if isinstance(soup, dict) and "error" in soup:
             self.logger.error(soup["error"])
             return
+        
         # 判斷網址屬於哪個網站
         for key, func in self.parser_dict.items():
             if key in url:
@@ -123,57 +118,26 @@ class NewsParser:
             None: If the news fetching and processing are successful, the function does not return 
                   anything but prints the news titles, links, and AI-generated summaries.
         """
-        # 檢查網站是否支援
-        # if not self.is_supported_website(url):
-        #     self.logger.error("不支援的網站")
-        #     return {"error": "不支援的網站"}
-        
         soup = self.news_request(url)
         news_result = []
-        # 如果請求失敗，則返回錯誤訊息
-        # 這裡的錯誤訊息是從 news_request 函數返回的
-        # 如果請求成功，則繼續處理
-        # if isinstance(soup, dict) and "error" in soup:
-        #     print(soup["error"])
-        #     return
-        # Get all news items for udn
         if "udn" in url:
             news_items = soup.select(".story-headline-wrapper")
             for idx, item in enumerate(news_items[:news_number]):
-                # Get the title tag and link
-                title_tag = item.select_one("a")
-                if title_tag:
-                    title = title_tag.get('title').strip()
-                    link  = title_tag.get("href")
-                    self.logger.info(f"\n📌 {title}\n🔗 {link}\n")
-                    # Fetch the news conten
-                    try:
-                        news_dict = self.fetch_news_content(link)
-                        news_dict['url'] = link
-                        news_result.append(news_dict)
-                    except Exception as e:
-                        self.logger.error(e);
-
-                    time.sleep(5)  # 避免過於頻繁的請求
+                # Get the news information
+                try:
+                    title_tag = item.select_one("a")
+                    if title_tag:
+                        title = title_tag.get('title').strip()
+                        link = title_tag.get("href")
+                        content = self.fetch_news_content(link)
+                        self.logger.debug(f"\n📌 {title}\n🔗 {link}\n")
+                        news_result.append({'title' : title, 'content' : content, 'url' : link, "src" : "crawl"})
+                except Exception as e:
+                    self.logger.error(e)
         else:
             news_result = self.rss_parser(url)
-        # elif "moneydj" in url:
-        #     news_items = soup.select(".forumgrid")[0].find_all("a")
-        #     for idx, item in enumerate(news_items[:news_number]):
-
-        #         title = item.get('title').strip()
-        #         link  = "https://www.moneydj.com" + item.get("href")
-        #         self.logger.info(f"\n📌 {title}\n🔗 {link}\n")
-        #         # Fetch the news content
-        #         try:
-        #             news_dict = self.fetch_news_content(link)
-        #             news_dict['url'] = link
-        #             news_result.append(news_dict)
-        #         except Exception as e:
-        #             self.logger.error(e)
-                    
-            time.sleep(5)  # 避免過於頻繁的請求
-        return news_result
+        
+        return news_result[:10] # Get latest 10 news
 
 if __name__ == "__main__":
     # Example usage

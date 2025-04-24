@@ -118,8 +118,14 @@ class NewsParser:
             None: If the news fetching and processing are successful, the function does not return 
                   anything but prints the news titles, links, and AI-generated summaries.
         """
-        soup = self.news_request(url)
         news_result = []
+
+        try:
+            soup = self.news_request(url)
+        except Exception as e:
+            self.logger.error(e)
+            return []
+
         if "udn" in url:
             news_items = soup.select(".story-headline-wrapper")
             for idx, item in enumerate(news_items[:news_number]):

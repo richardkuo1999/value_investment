@@ -108,12 +108,12 @@ async def cmd_handle_info(update: Update, context):
     DJ = MoneyDJ()
     chatbot = GroqAI()
 
-    wiki_result = DJ.get_wiki_result(ticker)
+    ticker_name, wiki_result = DJ.get_wiki_result(ticker)
     condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
     prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
 
     content = chatbot.talk(prompt, wiki_result, reasoning=True)
-    file_name = str(ticker) + "_info.md"
+    file_name = str(ticker) + f"{ticker_name}_info.md"
     with open(file_name, "w", encoding="utf-8") as f:
         f.write(content)
     with open(file_name, "rb") as f:

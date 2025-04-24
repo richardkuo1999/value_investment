@@ -1,6 +1,7 @@
 from utils.utils import fetch_webpage
 from Database.Goodinfo import Goodinfo, headers
 from utils.Logger import setup_logger
+import re
 class MoneyDJ:
     def __init__(self) -> None:
         self.query_url = f"https://www.moneydj.com/kmdj/search/list.aspx?_Query_="
@@ -31,13 +32,13 @@ class MoneyDJ:
 
         # 取得公司名稱
         company_name = goodinfo.StockInfo['公司名稱']
+        company_name_clean = re.sub(r"[^\u4e00-\u9fffA-Za-z0-9]", "", company_name)
         
         # 使用公司名稱進行查詢
-        url = self.query_url + company_name + self.wiki_url
+        url = self.query_url + company_name_clean + self.wiki_url
         self.logger.debug(f"Query URL: {url}")
         soup = fetch_webpage(url, headers)
         section_title = soup.find("td", string=company_name)
-
         # 取得查詢結果的網址
         if section_title:
             company_url = section_title.select_one('a').get("href")
@@ -60,5 +61,7 @@ class MoneyDJ:
         raw_text = data.get_text(separator='\n', strip=True)
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         clean_text = '\n'.join(lines)
+
+        goodinfo = Goodinfo(stock_id)
         
-        return clean_text
+        return (goodinfo.StockInfo['股票名稱'], clean_text)

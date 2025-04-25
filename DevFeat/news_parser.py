@@ -22,18 +22,17 @@ class NewsParser:
         }
     def rss_parser(self, url):
         feed = feedparser.parse(url)
-        entry = feed.entries[0]
-        # if entry.link != latest_link:
-        #     latest_link = entry.link
-        #     print("🆕 有新文章！")
-        #     # 這邊你就可以呼叫 telegram bot 去推送
         res_list = []
-        for entry in feed.entries:
-            self.logger.debug(f"標題：{entry.title}")
-            self.logger.debug(f"連結：{entry.link}")
-            self.logger.debug(f"發布時間：{entry.published}")
-            self.logger.debug("---")
-            res_list.append({'title' : entry.title, 'url' : entry.link, "src" : "rss"})
+        try:
+            for entry in feed.entries:
+                self.logger.debug(f"標題：{entry.title}")
+                self.logger.debug(f"連結：{entry.link}")
+                # self.logger.debug(f"發布時間：{entry.published}")
+                # self.logger.debug("-----------------")
+                res_list.append({'title' : entry.title, 'url' : entry.link, "src" : "rss"})
+        except Exception as e:
+            self.logger.error(e)
+            
         return res_list
 
     def is_supported_website(self, url):
@@ -50,22 +49,16 @@ class NewsParser:
         Returns:
             BeautifulSoup: A BeautifulSoup object containing the parsed HTML content of the response
                            if the request is successful.
-            dict: A dictionary with an error message if the request fails or if parsing encounters an issue.
-
-        Raises:
-            None: Exceptions are caught and handled within the method.
+            none: any exception
         """
         try:
             response = requests.get(url, headers=self.headers)
             response.raise_for_status()  # 檢查 HTTP 請求是否成功
             soup = BeautifulSoup(response.text, 'html.parser')
             return soup
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             self.logger.error(f"HTTP 請求錯誤: {e}")
-            return {"error": "HTTP 請求失敗"}
-        except AttributeError as e:
-            self.logger.error(f"解析錯誤: {e}")
-            return {"error": "無法解析標題或內容"}
+            return None
     
     def moneyDJ_news_parser(self, soup):
         # 解析 MONEYDJ 的新聞
@@ -119,25 +112,22 @@ class NewsParser:
                   anything but prints the news titles, links, and AI-generated summaries.
         """
         news_result = []
+        soup = self.news_request(url)
 
-        try:
-            soup = self.news_request(url)
-        except Exception as e:
-            self.logger.error(e)
+        if soup is None: # check return data before use
             return []
-
+        
         if "udn" in url:
             news_items = soup.select(".story-headline-wrapper")
             for idx, item in enumerate(news_items[:news_number]):
                 # Get the news information
                 try:
                     title_tag = item.select_one("a")
-                    if title_tag:
-                        title = title_tag.get('title').strip()
-                        link = title_tag.get("href")
-                        content = self.fetch_news_content(link)
-                        self.logger.debug(f"\n📌 {title}\n🔗 {link}\n")
-                        news_result.append({'title' : title, 'content' : content, 'url' : link, "src" : "crawl"})
+                    title = title_tag.get('title').strip()
+                    link = title_tag.get("href")
+                    content = self.fetch_news_content(link)
+                    self.logger.debug(f"\n📌 {title}\n🔗 {link}\n")
+                    news_result.append({'title' : title, 'content' : content, 'url' : link, "src" : "crawl"})
                 except Exception as e:
                     self.logger.error(e)
         else:

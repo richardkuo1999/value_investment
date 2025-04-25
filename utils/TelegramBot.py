@@ -20,6 +20,8 @@ lock = asyncio.Lock()
 job_queue = JobQueue()
 ASK_CODE = 1
 subscribers = set()
+bot_cmd = {"start" : "開始使用機器人", "help" : "使用說明", "esti" : "估算股票", "news" : "查看新聞",
+            "subscribe" : "訂閱即時新聞", "unsubscribe" : "取消訂閱即時新聞", "news_summary" : "新聞摘要"}
 
 def shorten_url_tinyurl(long_url):
     api_url = "http://tinyurl.com/api-create.php"
@@ -32,13 +34,10 @@ def escape_markdown_v2(text: str) -> str:
     return ''.join(['\\' + c if c in escape_chars else c for c in text])
 
 async def set_main_menu(application):
-    commands = [
-        BotCommand("start", "開始使用機器人"),
-        BotCommand("info", "查看公司摘要"),
-        BotCommand("esti", "估算股票"),
-        BotCommand("news", "查看新聞"),
-        BotCommand("help", "使用說明")
-    ]
+    commands = []
+    for k, v in bot_cmd:
+        commands.append(BotCommand(k, v))
+
     await application.bot.set_my_commands(
         commands,
         scope=BotCommandScopeAllGroupChats()
@@ -194,6 +193,14 @@ async def cmd_news(update: Update, context):
                                         , text="請選擇新聞來源與類型"
                                         , reply_markup=reply_markup
                                         , parse_mode='MarkdownV2')
+    
+async def cmd_uanalyze(update: Update, context):
+
+    # keyboard = [[btn] for btn in buttons]
+    reports = NP.get_uanalyze_report()
+    for rep  in reports:
+        text = f"📰{rep['title']}\n{rep['link']}"
+        await update.message._bot.sendMessage(chat_id=update.message.chat_id, text=text)
 
 async def scheduled_task(context: ContextTypes.DEFAULT_TYPE):
     # job_data = context.job.data
@@ -253,13 +260,13 @@ def get_news_forever():
     global news_data
     # set source 
     src_urls = {
-            '[udn] 產業' : 'https://money.udn.com/rank/newest/1001/5591/1', 
-            '[udn] 證券' : 'https://money.udn.com/rank/newest/1001/5590/1',
-            '[udn] 國際' : 'https://money.udn.com/rank/newest/1001/5588/1',
-            '[udn] 兩岸' : 'https://money.udn.com/rank/newest/1001/5589/1',
-            '[moneydj] 發燒頭條' : 'https://www.moneydj.com/KMDJ/RssCenter.aspx?svc=NR&fno=1&arg=MB010000',
-            'WSJ Chinese' : 'https://cn.wsj.com/zh-hans/rss',
-            'Yahoo TW' : "https://tw.stock.yahoo.com/rss?category=news",
+            # '[udn] 產業' : 'https://money.udn.com/rank/newest/1001/5591/1', 
+            # '[udn] 證券' : 'https://money.udn.com/rank/newest/1001/5590/1',
+            # '[udn] 國際' : 'https://money.udn.com/rank/newest/1001/5588/1',
+            # '[udn] 兩岸' : 'https://money.udn.com/rank/newest/1001/5589/1',
+            # '[moneydj] 發燒頭條' : 'https://www.moneydj.com/KMDJ/RssCenter.aspx?svc=NR&fno=1&arg=MB010000',
+            # 'WSJ Chinese' : 'https://cn.wsj.com/zh-hans/rss',
+            # 'Yahoo TW' : "https://tw.stock.yahoo.com/rss?category=news",
             "Investing Economy" : 'https://www.investing.com/rss/news_14.rss'}
     news_data = { news_type : [] for news_type in src_urls.keys() } # initial news_data
 
@@ -287,10 +294,11 @@ def main():
     application.add_handler(CommandHandler("help", cmd_help))
     application.add_handler(CommandHandler("esti", cmd_esti))
     application.add_handler(CommandHandler("news", cmd_news))
+    application.add_handler(CommandHandler("uanalyze", cmd_uanalyze))
     application.add_handler(CommandHandler("subscribe", subscribe))
     application.add_handler(CommandHandler("unsubscribe", unsubscribe))
-    
     application.add_handler(CommandHandler("news_summary", cmd_news_summary))
+
     application.add_handler(conv_handler)
     application.add_handler(CallbackQueryHandler(button_cb))
     # 錯誤處理

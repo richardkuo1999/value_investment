@@ -144,6 +144,29 @@ class NewsParser:
             news_result = self.rss_parser(url)
         
         return news_result[:10] # Get latest 10 news
+    
+    def get_uanalyze_report(self):
+        url = 'https://uanalyze.com.tw/articles'
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # 找出所有文章區塊
+        block = soup.select('.article-list')
+        articles = block[0].select(".article-content")
+        reports = []
+        for article in articles:
+            title = article.select_one(".article-content__title").get_text(strip=True)
+            link = article.select_one("a")["href"]
+            # print("📌 標題：", title)
+            # print("🔗 連結：", link)
+            # print("-" * 40)
+            reports.append({'title' : title, "link" : link})
+
+        return reports
 
 if __name__ == "__main__":
     # Example usage

@@ -112,12 +112,13 @@ async def cmd_handle_info(update: Update, context):
     prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
 
     content = chatbot.talk(prompt, wiki_result, reasoning=True)
-    file_name = str(ticker) + f"{ticker_name}_info.md"
-    with open(file_name, "w", encoding="utf-8") as f:
+    save_path = "./files/"
+    file_path = f"{save_path}/{str(ticker)}{ticker_name}_info.md"
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
-    with open(file_name, "rb") as f:
+    with open(file_path, "rb") as f:
         await update.message.reply_document(
-            document=InputFile(f, filename=file_name),
+            document=InputFile(f, filename=file_path),
             caption="這是你的報告 📄"
         )
     return ConversationHandler.END

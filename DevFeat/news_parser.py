@@ -62,7 +62,7 @@ class NewsParser:
     
     def moneyDJ_news_parser(self, soup):
         # 解析 MONEYDJ 的新聞
-        self.logger.info("解析 MONEYDJ 的新聞")
+        self.logger.debug("解析 MONEYDJ 的新聞")
         paragraphs = soup.find('article').find_all('p')
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
         self.logger.debug(f"📰 新聞內文：{content}\n")
@@ -70,7 +70,7 @@ class NewsParser:
 
     def udn_news_parser(self, soup):
         # 解析 MONEY.UDN 的新聞
-        self.logger.info("解析 MONEY UDN 的新聞")
+        self.logger.debug("解析 MONEY UDN 的新聞")
         paragraphs = soup.find('section', class_="article-body__editor").find_all('p')  # 內文區塊
         content = "\n".join(p.get_text(strip=True) for p in paragraphs[:-1])
         self.logger.debug(f"📰 新聞內文：\n{content}")
@@ -135,6 +135,23 @@ class NewsParser:
         
         return news_result[:10] # Get latest 10 news
     
+    def get_fugle_report(self):
+        url = 'https://blog.fugle.tw/'
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+        articles = soup.select('.col-12')
+        reports = []
+
+        for article in articles:
+            title = article.select_one(".post-title").get_text(strip=True)
+            link = article.select_one("a")["href"]
+            reports.append({'title' : title, "link" : link})
+
+        return reports
+
     def get_uanalyze_report(self):
         url = 'https://uanalyze.com.tw/articles'
         headers = {
@@ -151,9 +168,6 @@ class NewsParser:
         for article in articles:
             title = article.select_one(".article-content__title").get_text(strip=True)
             link = article.select_one("a")["href"]
-            # print("📌 標題：", title)
-            # print("🔗 連結：", link)
-            # print("-" * 40)
             reports.append({'title' : title, "link" : link})
 
         return reports
@@ -166,4 +180,5 @@ if __name__ == "__main__":
     # fetch_news_content(url)
     url = 'https://udn.com/news/breaknews/1/5#breaknews'
     # fetch_news_list(url, "udn")
-    NP = NewsParser(url)
+    NP = NewsParser()
+    NP.get_fugle_report()

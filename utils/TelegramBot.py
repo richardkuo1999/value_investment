@@ -30,18 +30,30 @@ def is_valid_input(s):
 class TelegramBot:
     def __init__(self):
         self.NP = NewsParser()
-        self.news_data = {}
         self.lock = asyncio.Lock()
         self.job_queue = JobQueue()
         self.logger = setup_logger()
         self.ASK_CODE = 1
         self.subscribers = set()
+        self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
         self.bot_cmd = {"start" : "開始使用機器人", "help" : "使用說明", "esti" : "估算股票", "news" : "查看新聞",
                 "subscribe" : "訂閱即時新聞", "unsubscribe" : "取消訂閱即時新聞", "news_summary" : "新聞摘要"}
+        # set source 
+        self.news_src_urls = {
+                '[udn] 產業' : 'https://money.udn.com/rank/newest/1001/5591/1', 
+                '[udn] 證券' : 'https://money.udn.com/rank/newest/1001/5590/1',
+                '[udn] 國際' : 'https://money.udn.com/rank/newest/1001/5588/1',
+                '[udn] 兩岸' : 'https://money.udn.com/rank/newest/1001/5589/1',
+                '[moneydj] 發燒頭條' : 'https://www.moneydj.com/KMDJ/RssCenter.aspx?svc=NR&fno=1&arg=MB010000',
+                'WSJ Chinese' : 'https://cn.wsj.com/zh-hans/rss',
+                'Yahoo TW' : "https://tw.stock.yahoo.com/rss?category=news",
+                "Investing Economy" : 'https://www.investing.com/rss/news_14.rss'
+            }
+        self.news_data = { news_type : [] for news_type in self.news_src_urls.keys() }
 
     async def set_main_menu(self, application):
         commands = []
-        for k, v in self.bot_cmd:
+        for k, v in self.bot_cmd.items():
             commands.append(BotCommand(k, v))
 
         await application.bot.set_my_commands(
@@ -233,48 +245,23 @@ class TelegramBot:
             await context.bot.send_document(chat_id=chat_id, document=filename)
             time.sleep(5)
 
-    async def get_uanalyze(self, context: ContextTypes.DEFAULT_TYPE):
+    async def get_reports(self, context: ContextTypes.DEFAULT_TYPE):
 
         group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
-        report = self.NP.get_uanalyze_report()[0]
-        news = f"{report['title']}\n{report['link']}"
-
-        if news != context.job.data.get("last_news"):
-            await context.bot.send_message(chat_id=group_id, text=news)
-            context.job.data["last_news"] = news  # ✅ 更新news
-
-    async def get_fugle(self, context: ContextTypes.DEFAULT_TYPE):
-
-        group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
-        report = self.NP.get_fugle_report()[0]
-        news = f"{report['title']}\n{report['link']}"
-
-        if news != context.job.data.get("last_news"):
-            await context.bot.send_message(chat_id=group_id, text=news)
-            context.job.data["last_news"] = news  # ✅ 更新news
+        for idx, func in enumerate(self.report_func):
+            report = func()[0] # lastest report
+            news = f"{report['title']}\n{report['link']}"
+            if news != context.job.data[idx].get("last_news"):
+                await context.bot.send_message(chat_id=group_id, text=news)
+                context.job.data[idx]["last_news"] = news  # ✅ 更新news
 
     async def cmd_news_summary(self, update, context):
         context.job_queue.run_repeating(self.scheduled_task, interval=60*30, first=0, data={"chat_id": update.effective_chat.id})
         await update.message.reply_text("設定每 30 分鐘傳送摘要檔案！(content available only)")
 
     async def get_news(self, context: ContextTypes.DEFAULT_TYPE):
-        # set source 
-        urls = {
-                '[udn] 產業' : 'https://money.udn.com/rank/newest/1001/5591/1', 
-                '[udn] 證券' : 'https://money.udn.com/rank/newest/1001/5590/1',
-                '[udn] 國際' : 'https://money.udn.com/rank/newest/1001/5588/1',
-                '[udn] 兩岸' : 'https://money.udn.com/rank/newest/1001/5589/1',
-                '[moneydj] 發燒頭條' : 'https://www.moneydj.com/KMDJ/RssCenter.aspx?svc=NR&fno=1&arg=MB010000',
-                'WSJ Chinese' : 'https://cn.wsj.com/zh-hans/rss',
-                'Yahoo TW' : "https://tw.stock.yahoo.com/rss?category=news",
-                "Investing Economy" : 'https://www.investing.com/rss/news_14.rss'
-        }
-        
-        if not self.news_data: # initial news_data before check
-            self.news_data = { news_type : [] for news_type in urls.keys() }
-
         # async with self.lock:
-        for news_type, url in urls.items():
+        for news_type, url in self.news_src_urls.items():
             self.logger.info(f"NEWS SOURCE : {news_type}")
             res_list = self.NP.fetch_news_list(url, 10) # Get news from parser only
             titles = [news['title'] for news in self.news_data[news_type]]
@@ -320,12 +307,13 @@ class TelegramBot:
         # 錯誤處理
         application.add_error_handler(self.cmd_error)
         # repeat task
-        application.job_queue.run_repeating(callback=self.get_uanalyze, interval=300, first=1, data={"last_news": None}, name="get_uanalyze")
-        application.job_queue.run_repeating(callback=self.get_fugle   , interval=600, first=1, data={"last_news": None}, name="get_fugle")
+        init_list = [{"last_news": None} for _ in self.report_func]
+        application.job_queue.run_repeating(callback=self.get_reports , interval=600, first=1, data=init_list, name="get_reports")
         application.job_queue.run_repeating(callback=self.get_news    , interval=300, first=10, data={}, name="get_news")
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
         # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
         # set menu
+        # asyncio.run(self.set_main_menu(application))
         self.set_main_menu(application)
         # 開始輪詢
         application.run_polling()

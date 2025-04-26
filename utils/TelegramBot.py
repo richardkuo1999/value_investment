@@ -6,7 +6,7 @@ import yaml
 import requests
 import time
 import asyncio
-import threading
+import re
 
 from server_main import Individual_search
 from Database.MoneyDJ import MoneyDJ
@@ -23,6 +23,9 @@ def shorten_url_tinyurl(long_url):
 def escape_markdown_v2(text: str) -> str:
     escape_chars = r'\_*[]()~`>#+-=|{}.!'
     return ''.join(['\\' + c if c in escape_chars else c for c in text])
+
+def is_valid_input(s):
+    return bool(re.fullmatch(r"[1-9][0-9]{3}", s))
 
 class TelegramBot:
     def __init__(self):
@@ -96,10 +99,11 @@ class TelegramBot:
 
     async def cmd_handle_info(self, update: Update, context):
         ticker = update.message.text.strip()
+        res = is_valid_input(ticker)
         msg = ""
         
-        if ticker is None:
-            msg = "[ERROR] missing ticker information"
+        if ticker is None or res is False:
+            msg = "[ERROR] Wrong ticker information"
             await update.message.reply_text(msg)
             return
         

@@ -171,6 +171,28 @@ class NewsParser:
             reports.append({'title' : title, "link" : link})
 
         return reports
+    
+    def fetch_vocus_articles(self):
+        url = "https://vocus.cc/user/@ieobserve"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        }
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            print(f"無法取得頁面，狀態碼: {response.status_code}")
+            return
+        soup = BeautifulSoup(response.text, "html.parser")
+        link_prefix = 'https://vocus.cc'
+
+        articles = soup.find_all("div", attrs={"class": ["dHnwX", "dDuosN"]})
+        for article in articles:
+            title = article.select_one('span').get_text(strip=True)
+            link = link_prefix + article.select_one('a')['href']
+            print(title, link)
+            
+            
 
 if __name__ == "__main__":
     # Example usage
@@ -181,4 +203,5 @@ if __name__ == "__main__":
     url = 'https://udn.com/news/breaknews/1/5#breaknews'
     # fetch_news_list(url, "udn")
     NP = NewsParser()
-    NP.get_fugle_report()
+    NP.fetch_vocus_articles()
+    

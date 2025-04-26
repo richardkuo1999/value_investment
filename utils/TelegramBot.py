@@ -167,7 +167,8 @@ class TelegramBot:
         return ConversationHandler.END
     # 定義發送新聞的函數
     async def send_news(self, news):
-        
+
+        self.logger.debug("send_news fo subscriber")
         bot = Bot(token=yaml.safe_load(open('token.yaml'))["TelegramToken"][0])
         for chat_id in self.subscribers:
             title = news['title']
@@ -268,22 +269,22 @@ class TelegramBot:
         if not self.news_data: # initial news_data before check
             self.news_data = { news_type : [] for news_type in urls.keys() }
 
-        async with self.lock:
-            for news_type, url in urls.items():
-                self.logger.info(f"NEWS SOURCE : {news_type}")
-                res_list = self.NP.fetch_news_list(url, 10) # Get news from parser only
-                titles = [news['title'] for news in self.news_data[news_type]]
-                if len(titles) != 0:
-                    for ele in res_list:
-                        if ele['title'] not in titles:
-                            self.logger.info("SEND NEWS")
-                            await self.send_news(ele)
-                else:
-                    self.logger.debug("No news")
+        # async with self.lock:
+        for news_type, url in urls.items():
+            self.logger.info(f"NEWS SOURCE : {news_type}")
+            res_list = self.NP.fetch_news_list(url, 10) # Get news from parser only
+            titles = [news['title'] for news in self.news_data[news_type]]
+            if len(titles) != 0:
+                for ele in res_list:
+                    if ele['title'] not in titles and not self.subscribers:
+                        self.logger.info("SEND NEWS")
+                        await self.send_news(ele)
+            else:
+                self.logger.debug("No news")
 
-                self.news_data[news_type] = res_list # update news
+            self.news_data[news_type] = res_list # update news
 
-            self.logger.info("Fetch news sources done")
+        self.logger.info("Fetch news sources done")
 
     def run(self):
         # 設置你的 Token
@@ -315,9 +316,9 @@ class TelegramBot:
         # 錯誤處理
         application.add_error_handler(self.cmd_error)
         # repeat task
-        application.job_queue.run_repeating(callback=self.get_news    , interval=300, first=5, data={}, name="get_news")
-        application.job_queue.run_repeating(callback=self.get_uanalyze, interval=600, first=1, data={"last_news": None}, name="get_uanalyze")
+        application.job_queue.run_repeating(callback=self.get_uanalyze, interval=300, first=1, data={"last_news": None}, name="get_uanalyze")
         application.job_queue.run_repeating(callback=self.get_fugle   , interval=600, first=1, data={"last_news": None}, name="get_fugle")
+        application.job_queue.run_repeating(callback=self.get_news    , interval=300, first=10, data={}, name="get_news")
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
         # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
         # set menu
@@ -326,6 +327,6 @@ class TelegramBot:
         application.run_polling()
 
 if __name__ == '__main__':
-    Bot = TelegramBot()
-    Bot.run()
+    MyBot = TelegramBot()
+    MyBot.run()
 

@@ -1,202 +1,190 @@
 import os
 import sys
-import pytz
-import time
-import yaml
 import threading
 from pathlib import Path
-from datetime import datetime, timedelta
+import logging
 
-sys.path.append(os.path.join(os.path.dirname(__file__)))
 
-from utils.output import ResultOutput
+sys.path.append(os.path.dirname(__file__))
+
+from utils.output import result_output, telegram_print
 from Database.finmind import Finminder
-from utils.Parameter import Parameter_read
 from calculator.calculator import calculator
-from calculator.Index import NotifyMacroeconomics
-from utils.utils import Telegram_print, UnderEST, getLasturl
-from calculator.stock_select import get_etf_constituents, get_institutional_top50
+from calculator.Index import notify_macro_indicators
+from calculator.stock_select import fetch_etf_constituents, fetch_institutional_top50
+from utils.utils import load_token, get_profit, get_target, get_last_data
 
-# ETFList = []
-User_Choice = [
-    "1560",
-    "2337",
-    "2351",
-    "2455",
-    "2458",
-    "2467",
-    "3006",
-    "3081",
-    "3455",
-    "3563",
-    "3587",
-    "3596",
-    "3708",
-    "4768",
-    "4906",
-    "5236",
-    "5306",
-    "5388",
-    "5469",
-    "6271",
-    "6438",
-    "6664",
-    "6937",
-    "6957",
-    "8027",
-    "8358",
-    "8936",
-    "9914",
+logger = logging.getLogger(__name__)
+
+daily_run_lock = threading.Lock()
+
+level = 4       # EPS level: 1-high, 2-low, 3-average, 4-medium
+year = 4.5      # Calculation period (years)
+
+USER_CHOICE = [
+    "1560", "2337", "2351", "2455", "2458", "2467", "3006", "3081", "3455",
+    "3563", "3587", "3596", "3708", "4768", "4906", "5236", "5306", "5388",
+    "5469", "6271", "6438", "6664", "6937", "6957", "8027", "8358", "8936", "9914",
 ]
-# ETFList = ["006201"]
-# DAILLY_RUN = False
-DAILLY_RUN = True
-ETFList = ["User_Choice", "0051", "0050", "006201"]
 
-def Individual_search(StockLists, EPSLists):
+def get_catch():
+    result_path = Path("results", "new")
+    backup_path = Path("results", "backup")
 
-    new_result = Path("results", "Individual")
-    TokenPath = Path("token.yaml")
-    ParameterPath = Path("Parameter.txt")
+    result_path.mkdir(parents=True, exist_ok=True)
+    backup_path.mkdir(parents=True, exist_ok=True)
 
-    # create folder
-    new_result.mkdir(parents=True, exist_ok=True)
-    for file in new_result.rglob("*"):
-        if file.is_file():
+    catch = {}
+    catch.update(get_last_data(backup_path))
+    catch.update(get_last_data(result_path))
+    return catch
+
+def individual_search(stock_lists, EPS_lists, params):
+    result_path = Path("results", "Individual",)
+    result_path.mkdir(parents=True, exist_ok=True)
+    for file in result_path.rglob("*"):
+        if file.is_file() and file.stem == "Individual":
             file.unlink()
 
-    # Read the caculate Parameter
-    if ParameterPath.exists():
-        parameter = Parameter_read(ParameterPath)
+    token = load_token()
+    db = Finminder(token)
+    params = [params[0] or level, params[1] or year]
 
-    with open(TokenPath, "r") as file:
-        Token = yaml.safe_load(file)
+    stock_datas = calculator(db, stock_lists, params, get_catch())
+    stock_texts = result_output(result_path / Path("Individual"), stock_datas, EPS_lists)
 
-    Database = Finminder(Token)
+    return stock_datas, stock_texts
 
-    # Get Data
-    StockDatas = calculator(Database, StockLists, parameter)
-    ResultOutput(new_result / Path("Individual"), StockDatas, EPSLists)
+def get_institutional_data(db, result_path: Path, params: list, catch=None) -> dict:
 
-    return StockDatas
+    stock_list = fetch_institutional_top50()
+    last_data = get_last_data(result_path)
 
+    existing_data = {sid: last_data[sid] for sid in stock_list if sid in last_data}
+    missing_ids = [sid for sid in stock_list if sid not in last_data]
 
-def getInstitutional(Database, StockDatas_dict, parameter, CatchURL):
-    EPSLists = None
+    resultdata = calculator(db, missing_ids, params, catch)
+    resultdata.update(existing_data)
+    return resultdata
 
-    StockList = get_institutional_top50()
-    Telegram_print(f"Start Run\nInstitutional_TOP50")
+class UnderEST:
+    @staticmethod
+    def get_underestimated(result_path: Path) -> dict:
+        last_data = get_last_data(result_path)
+        unders_est_data = {stock_id: data \
+                            for stock_id, data in last_data.items()
+                            if UnderEST.is_underestimated(data)
+                        }
+        return unders_est_data
 
-    isGetList = StockDatas_dict.keys()
-    temp = {}
-    notGetList = []
-    for stockID in StockList:
-        if stockID in isGetList:
-            temp.update({stockID: StockDatas_dict[stockID]})
-        else:
-            notGetList.append(stockID)
-    # Get Data
-    StockDatas = calculator(Database, notGetList, parameter, CatchURL)
-    StockDatas.update(temp)
+    @staticmethod
+    def notify_unders_est(underestimated_dict: dict) -> str:
+        msg = "Under Stimated\n"
+        for stock_id, data in underestimated_dict.items():
+            name = data.get("名稱", "")
+            profit = UnderEST.get_expected_profit(data)
+            msg += f"{stock_id}{name}: {profit:.1f}%\n"
 
-    return StockDatas
+        telegram_print(msg)
+        return msg
 
+    @staticmethod
+    def is_underestimated(StockData):
+        return UnderEST.get_expected_profit(StockData) > 0.0
 
-def run():
-    TokenPath = Path("token.yaml")
-    ParameterPath = Path("Parameter.txt")
-    new_result = Path("results")
-    backup = Path("backup")
-    CatchURL = {}
-    StockLists = {}
-    # create folder
-    if DAILLY_RUN:
-        new_result.mkdir(parents=True, exist_ok=True)
-        backup.mkdir(parents=True, exist_ok=True)
-        for file in backup.rglob("*"):
-            if file.is_file():
-                file.unlink()
+    @staticmethod
+    def get_expected_profit(data: dict) -> float:
+        eps = float(data.get("EPS(EST)") or data.get("EPS(TTM)", 0))
+        price = float(data.get("價格", 0))
+        target = get_target(float(data.get("PE(TL-1SD)", 0.0)), eps)
+        return get_profit(target, price)
+    
+def main_run(run_lists, DAILY_RUN_LISTS):
+    result_path = Path("results", "new")
+    backup_path = Path("results", "backup")
 
-    for file in new_result.rglob("*"):
-        if file.is_file() and file.stem != "Individual":
-            if DAILLY_RUN:
-                CatchURL.update(getLasturl(file))
-                file.rename(backup / file.name)
-            else:
-                for etf in ETFList:
-                    CatchURL.update(getLasturl(Path(backup, f"{etf}.csv")))
-                    break
+    catch = get_catch()
 
+    stock_groups = {}
+   
+    for file in result_path.rglob("*"):
+        if file.is_file() and file.stem in run_lists:
+            file.rename(backup_path / file.name)
 
-    # Read the caculate Parameter
-    if ParameterPath.exists():
-        parameter = Parameter_read(ParameterPath)
+    stock_groups = {}
+    for etf in DAILY_RUN_LISTS:
+        if etf in run_lists:
+            stock_groups[etf] = USER_CHOICE if etf == "User_Choice" else fetch_etf_constituents(etf)
 
-    with open(TokenPath, "r") as file:
-        Token = yaml.safe_load(file)
-    Database = Finminder(Token)
+    params = [level, year]
 
-    for etf in ETFList:
-        if etf == "User_Choice":
-            StockLists["User_Choice"] = User_Choice
-        else:
-            StockLists[etf] = get_etf_constituents(etf)
+    token = load_token()
+    db = Finminder(token)
 
-    EPSLists = None
-    StockDatas_dict = {}
-
-    for title, StockList in StockLists.items():
-        Telegram_print(f"Start Run\n{title}")
-        # Get Data
-        StockDatas = calculator(
-            Database,
-            StockList,
-            parameter,
-            CatchURL,
-        )
-        ResultOutput(new_result / Path(title), StockDatas)
-        StockDatas_dict.update(StockDatas)
-        time.sleep(120)
-
-    # get Understimated
-    UndersESTDict = UnderEST.getUnderstimated(StockDatas_dict)
-    ResultOutput(new_result / Path("Understimated"), UndersESTDict, EPSLists)
-
-    # get Institutional
-    InstitutionalDatas = getInstitutional(
-        Database, StockDatas_dict, parameter, CatchURL
-    )
-    ResultOutput(new_result / Path("Institutional_TOP50"), InstitutionalDatas, EPSLists)
-
-    Telegram_print("Daily Run Finished")
-    UnderEST.NotifyUndersEST(UndersESTDict)
-    NotifyMacroeconomics(Database)
-    Telegram_print(
-        "Down load link:\nCSV: http://54.205.241.96:8000/download/csv\nTXT: http://54.205.241.96:8000/download/txt"
-    )
+    for title, stocklist in stock_groups.items():
+        telegram_print(f"Start Run\n{title}")
+        resultdata = calculator(db, stocklist, params, catch)
+        result_output(result_path / Path(title), resultdata)
 
 
-def daily_run():
-    taiwan_tz = pytz.timezone("Asia/Taipei")
+    try:
+        for file in result_path.rglob("*"):
+            if file.is_file() and file.stem == "Understimated":
+                file.rename(backup_path / file.name)
+        unders_est_data = UnderEST.get_underestimated(result_path)
+        result_output(result_path / Path("Understimated"), unders_est_data)
+    except Exception as e:
+        logger.error(f"Error in getting underestimated stocks: {e}")
 
-    while True:
-        taiwan_time = datetime.now(taiwan_tz)
-        today_8pm = taiwan_time.replace(hour=20, minute=0, second=0, microsecond=0)
+    try:
+        telegram_print("Start Run\nInstitutional_TOP50")
+        for file in result_path.rglob("*"):
+            if file.is_file() and file.stem == "nInstitutional_TOP50":
+                file.rename(backup_path / file.name)
+        resultdata = get_institutional_data(db, result_path, params, catch)
+        result_output(result_path / Path("Institutional_TOP50"), resultdata)
+    except Exception as e:
+        logger.error(f"Error in getting institutional data: {e}")
+    
 
-        next_time_run = today_8pm
-        if taiwan_time >= today_8pm:
-            next_time_run = next_time_run + timedelta(days=1)
+        UnderEST.notify_unders_est(unders_est_data)
+    try:
+        notify_macro_indicators(db)
+    except Exception as e:
+        logger.error(f"Error in notifying macro indicators: {e}")
 
-        remaining_time = next_time_run - taiwan_time
+def daily_run(DAILY_RUN_LISTS, IP_ADDR):
+    if daily_run_lock.acquire(blocking=False):
+        telegram_print("Start Daily Run")
+        try:
+            main_run(DAILY_RUN_LISTS, DAILY_RUN_LISTS)
+            telegram_print("Daily Run Finished")
+        except Exception as e:
+            logger.error(f"Daily run error: {e}")
+            telegram_print(f"Daily run error: {e}")
+        finally:
+            daily_run_lock.release()
+            telegram_print(
+                f"Download link:\nCSV: http://{IP_ADDR}:8000/download/csv\n" \
+                f"TXT: http://{IP_ADDR}:8000/download/txt"
+            )
 
-        Telegram_print(f"Next run : {next_time_run}")
-        time.sleep(remaining_time.total_seconds())
-        Telegram_print(f"Start Daily Run")
-        run()
-
+def force_run(run_lists, DAILY_RUN_LISTS, IP_ADDR):
+    if daily_run_lock.acquire(blocking=False):
+        try:
+            main_run(run_lists, DAILY_RUN_LISTS)
+        except Exception as e:
+            logger.error(f"Force run error: {e}")
+            telegram_print(f"Force run error: {e}")
+        finally:
+            daily_run_lock.release()
+            telegram_print(
+                f"Download link:\nCSV: http://{IP_ADDR}:8000/download/csv\n" \
+                f"TXT: http://{IP_ADDR}:8000/download/txt"
+            )
 
 if __name__ == "__main__":
     pass
-    # daily_run()
+    # run_daily_task()
     # thread1 = threading.Thread(target=print_numbers, args=("Thread-1", 1))  # 每秒打印一次數字
     # thread2 = threading.Thread(target=print_numbers, args=("Thread-2", 2))  # 每兩秒打印一次數字

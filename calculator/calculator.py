@@ -1,140 +1,140 @@
+import os
+import sys
 import time
-import numpy as np
+import logging
 from datetime import datetime, timedelta
+
+sys.path.append(os.path.dirname(__file__) + "/..")
 
 from Database.Goodinfo import Goodinfo
 from Database.YahooFinance import YahooFinance
 from Database.Anue import ANUE
 from utils.Math import Math
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+QUARTILE_TITLES = ["25%", "50%", "75%", "平均"]
+MEAN_REVERSION_TITLES = {
+                        "prob":       ["往上機率", "區間震盪機率", "往下機率"],
+                        "TL":         ["TL價"], 
+                        "expect":     ["保守做多期望值", "樂觀做多期望值", "樂觀做空期望值"], 
+                        "targetprice":["超極樂觀", "極樂觀", "樂觀", "趨勢", "悲觀", "極悲觀", "超極悲觀"]
+                        }
 
 class Stock_Predictor:
-    def __init__(self, Database, stock_id, parameter, CatchURL):
-        self.level, self.year, self.EPS = parameter
+    def __init__(self, database, stock_id, parameter, catch_url):
+        level, year = parameter
         self.stock_id = stock_id
-        self.CatchURL = CatchURL
+        self.database = database
+        self.catch_url = catch_url
 
-        start_date = (datetime.now() - timedelta(days=self.year * 365)).strftime(
-            "%Y-%m-%d"
-        )
-        Database.stock_id, Database.start_date = stock_id, start_date
+        start_date = (datetime.now() - timedelta(days=year * 365)).strftime("%Y-%m-%d")
+        self.database.stock_id, self.database.start_date = stock_id, start_date
 
-        self.StockName = Database.get_stock_info(stock_id, "stock_id", "stock_name")
-        self.Market = (
-            "TW"
-            if Database.get_stock_info(stock_id, "stock_id", "type") == "twse"
-            else "TWO"
-        )
-        self.industry_category = Database.get_stock_info(
-            stock_id, "stock_id", "industry_category"
-        )
+        stock_info = self._fetch_stock_info()
+        self.stock_name = stock_info["stock_name"]
+        self.market = "TW" if stock_info["type"] == "twse" else "TWO"
+        self.industry_category = stock_info["industry_category"]
 
-        self.perDatas, self.pbrDatas = Database.get_per_pbr()
-
-        self.priceDatas = Database.get_closing_price()
-        self.lastPrice = self.priceDatas[-1][-1]
-        self.epsDatas = Database.get_eps()
+        self.per_datas, self.pbr_datas = self.database.get_per_pbr()
+        self.price_datas = self.database.get_closing_price()
+        self.last_price = self.price_datas[-1][-1] if self.price_datas else None
+        self.eps_datas = self.database.get_eps()
 
         goodinfo = Goodinfo(stock_id)
-        self.PEG = 0
-        self.companyINFO = "goodinfo.CompanyINFO"
+        self.peg = goodinfo.TTMPEG
+        self.company_info = goodinfo.business
 
-        # yahooFinance = YahooFinance(stock_id, self.Market)
-        # self.avg1yTargetEst = yahooFinance.get_1yTargetEst()
-        self.avg1yTargetEst = 0
+        yahooFinance = YahooFinance(stock_id, self.market)
+        self.avg1y_target_est = yahooFinance.get_1y_target_est()
 
-        Anue = ANUE(stock_id, self.StockName, CatchURL, self.level)
-        self.FactsetData = Anue.FactsetData
+        self.factset_data = ANUE(stock_id, self.stock_name, catch_url, level).FactsetData
 
-    def price_MeanReversion(self, line_num=5):
-        return Math.mean_reversion(self.priceDatas, line_num)
+    def _fetch_stock_info(self):
+        return self.database.get_stock_info(self.stock_id, "stock_id", ["stock_name", "type", "industry_category"])
 
-    def per_std(self, line_num=5, fig=False):
-        return Math.std(self.perDatas, line_num, fig)
-
-    def per_quartile(self):
-        return Math.quartile(self.perDatas)
-
-    def pbr_std(self, line_num=5, fig=False):
-        return Math.std(self.pbrDatas, line_num, fig)
-
-    def pbr_quartile(self):
-        return Math.quartile(self.pbrDatas)
-
-
-def calculator(Database, StockList, parameter, CatchURL={}):
-    StockData = {}
-    for i, stock_id in enumerate(StockList, start=1):
-        No = i
-        print(f"{No} / {len(StockList)}")
-
-        Database.Login()
-        Stock_item = Stock_Predictor(Database, stock_id, parameter, CatchURL)
-
-        StockData[stock_id] = {
-            "名稱": Stock_item.StockName,
-            "代號": stock_id,
-            "產業": Stock_item.industry_category,
-            "資訊": Stock_item.companyINFO,
-            "交易所": Stock_item.Market,
-            "價格": Stock_item.lastPrice,
-            "EPS(TTM)": sum(Stock_item.epsDatas[-4:]),
-            "BPS": Stock_item.lastPrice / Stock_item.pbrDatas[-1],
-            "PE(TTM)": Stock_item.perDatas[-1],
-            "PB(TTM)": Stock_item.pbrDatas[-1],
-            "Yahoo_1yTargetEst": Stock_item.avg1yTargetEst,
+    def process(self):
+        last_price = self.last_price
+        eps_data = self.eps_datas
+        pbr_data = self.pbr_datas
+        per_data = self.per_datas
+        
+        stock_data = {
+            "名稱": self.stock_name,
+            "代號": self.stock_id,
+            "產業": self.industry_category,
+            "資訊": self.company_info,
+            "交易所": self.market,
+            "價格": last_price,
+            "EPS(TTM)": sum(eps_data[-4:]) if eps_data else None,
+            "BPS": last_price / pbr_data[-1] if pbr_data else None,
+            "PE(TTM)": per_data[-1] if per_data else None,
+            "PB(TTM)": pbr_data[-1] if pbr_data else None,
+            "Yahoo_1yTargetEst": self.avg1y_target_est,
         }
-
-        # =======================================================================
 
         # 從 鉅亨網 取得預估eps及市場預估價，若沒資料則使用近幾季eps
-        FactsetESTprice, ESTeps, AnueDataTime, url = Stock_item.FactsetData
-
-        # 市場預估價
-        StockData[stock_id]["Anue"] = {
-            "EPS(EST)": ESTeps,
-            "PE(EST)": (Stock_item.lastPrice / ESTeps) if ESTeps else None,
-            "Factest目標價": FactsetESTprice,
-            "資料時間": str(AnueDataTime).split(" ")[0].replace("-", "/"),
-            "ANUEurl": url,
-        }
-
-        # =======================================================================
+        factset_est_price, est_eps, anue_data_time, url = self.factset_data
+        stock_data.update(
+            {
+                "EPS(EST)": est_eps if est_eps else None,
+                "PE(EST)": (last_price / est_eps) if est_eps else None,
+                "Factest目標價": factset_est_price if factset_est_price else None,
+                "資料時間": str(anue_data_time).split(" ")[0].replace("-", "/"),
+                "ANUEurl": url,
+            }
+        )
 
         # 使用均值回歸預測價格
-
-        StockData[stock_id]["MeanReversion"] = Stock_item.price_MeanReversion()
-
-        # =======================================================================
+        df = Math.mean_reversion(self.price_datas)
+        for key, value in df.items():
+            stock_data.update({t: v for t, v in zip(MEAN_REVERSION_TITLES[key], value)})
 
         # 使用本益比四分位數預測股價
-
-        StockData[stock_id]["ESTPER"] = Stock_item.per_quartile()
-
-        # =======================================================================
+        df = Math.quartile(self.per_datas)
+        stock_data.update({f"PE({t})": d for t, d in zip(QUARTILE_TITLES, df)})
 
         # 利用本益比標準差預測股價
-        (df, comp_list) = Stock_item.per_std(fig=False)
-        StockData[stock_id]["SDESTPER"] = [df[title][-1] for title in comp_list]
-
-        # =======================================================================
+        df, comp_list = Math.std(self.per_datas)
+        stock_data.update({f"PE({t})" : df[t][-1] for t in comp_list})
 
         # 使用股價淨值比四分位數預測股價
-        StockData[stock_id]["ESTPBR"] = Stock_item.pbr_quartile()
-
-        # =======================================================================
+        df = Math.quartile(self.pbr_datas)
+        stock_data.update({f"PB({t})": d for t, d in zip(QUARTILE_TITLES, df)})
 
         # 利用股價淨值比標準差預測股價
-        (df, comp_list) = Stock_item.pbr_std(fig=False)
-        StockData[stock_id]["SDESTPBR"] = [df[title][-1] for title in comp_list]
-
-        # =======================================================================
+        df, comp_list = Math.std(self.pbr_datas)
+        stock_data.update({f"PB({t})" : df[t][-1] for t in comp_list})
 
         # 從 Goodinfo 取得 PEG
-        StockData[stock_id]["PEG"] = Stock_item.PEG
+        stock_data["PEG"] = self.peg
 
-        # =======================================================================
+        return stock_data
 
-        time.sleep(1)
-        # print(StockData[stock_id])
-    return StockData
+
+def calculator(database, stock_list, parameter, catch_url={}):
+    stock_datas = {}
+    for i, stock_id in enumerate(stock_list, start=1):
+        logger.info(f"Processing {i}/{len(stock_list)}: {stock_id}")
+        try:
+            database.login()
+            predictor = Stock_Predictor(database, stock_id, parameter, catch_url)
+            stock_datas.update({stock_id:predictor.process()})
+        except Exception as e:
+            logger.error(f"Error processing {stock_id}: {e}")
+    return stock_datas
+
+if __name__ == "__main__":
+    from Database.finmind import Finminder
+    from utils.utils import load_token
+
+    token = load_token()
+    db = Finminder(token)
+    stock_list = ["2330"]  # Example stock list
+    parameter = (1, 5)  # Example parameters
+    catch_url = {}  # Example catch URL
+
+    result = calculator(db, stock_list, parameter, catch_url)
+    print(result)
+    

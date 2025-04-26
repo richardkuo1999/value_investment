@@ -1,91 +1,132 @@
+import logging
 import statistics
 import numpy as np
 from enum import Enum
 from sklearn.linear_model import LinearRegression
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Math(Enum):
+    PROB_WEIGHTS = [0.001, 0.021, 0.136, 0.341, 0.341, 0.136, 0.021, 0.001]
+
     @staticmethod
-    def std(datas, line_num=5, fig=False):
-        reg = LinearRegression()
-
-        idx = np.arange(1, len(datas) + 1)
-        reg.fit(idx.reshape(-1, 1), datas)
-
-        # print(reg.coef_[0]) # 斜率
-        # print(reg.intercept_) # 截距
-        df = {
-            "TL": np.full((len(datas),), statistics.median(datas)),
-        }
-
-        df["y-TL"] = datas - df["TL"]
-        df["SD"] = df["y-TL"].std()
-        for i in range(1, 4):
-            df[f"TL-{i}SD"] = df["TL"] - i * df["SD"]
-            df[f"TL+{i}SD"] = df["TL"] + i * df["SD"]
-        df["datas"] = np.array(datas)
-        comp_list = (
+    def _generate_band_labels() -> list[str]:
+        """Generate labels for standard deviation bands."""
+        return (
             [f"TL+{i}SD" for i in range(3, 0, -1)]
             + ["TL"]
             + [f"TL-{i}SD" for i in range(1, 4)]
         )
 
-        return (df, comp_list)
-
     @staticmethod
-    def quartile(datas):
-        lst_data = [np.percentile(datas, p) for p in (25, 50, 75)]
-        lst_data.append(round(statistics.mean(datas), 2))
-        return lst_data
+    def std(datas: list[float]):
+        if not datas:
+            raise ValueError("Input data cannot be empty")
+        try:
+            datas = np.array(datas, dtype=float)
+        except ValueError:
+            raise ValueError("Input data must contain only numeric values")
 
-    @staticmethod
-    def mean_reversion(datas, line_num=5):
-        prob_data = [0.001, 0.021, 0.136, 0.341, 0.341, 0.136, 0.021, 0.001]
-        reg = LinearRegression()
-        _, price = datas
+        result = {}
+        result["TL"] = np.full_like(datas, statistics.median(datas))
+        result["y-TL"] = datas - result["TL"]
+        result["SD"] = np.std(result["y-TL"], ddof=1)  # Sample standard deviation
+        if result["SD"] == 0:
+            logger.warning("Standard deviation is zero, returning identical bands")
+            result["SD"] = 1e-10  # Avoid division by zero
 
-        idx = np.arange(1, len(price) + 1)
-        reg.fit(idx.reshape(-1, 1), price)
-
-        # print(reg.coef_[0]) # 斜率
-        # print(reg.intercept_) # 截距
-        df = {"TL": reg.intercept_ + idx * reg.coef_[0]}
-        df["y-TL"] = price - df["TL"]
-        df["SD"] = df["y-TL"].std()
         for i in range(1, 4):
-            df[f"TL-{i}SD"] = df["TL"] - i * df["SD"]
-            df[f"TL+{i}SD"] = df["TL"] + i * df["SD"]
+            result[f"TL-{i}SD"] = result["TL"] - i * result["SD"]
+            result[f"TL+{i}SD"] = result["TL"] + i * result["SD"]
+        result["datas"] = datas
 
-        df["close"] = np.array(price)
-        lastPrice = df["close"][-1]
-        up_prob, hold_prob, down_prob = 0, 0, sum(prob_data)
-        comp_list = (
-            [f"TL+{i}SD" for i in range(3, 0, -1)]
-            + ["TL"]
-            + [f"TL-{i}SD" for i in range(1, 4)]
-        )
+        return result, Math._generate_band_labels()
 
-        for idx, item in enumerate(comp_list):
-            if lastPrice < df[item][-1]:
-                up_prob += prob_data[idx]
-                down_prob -= prob_data[idx]
+    @staticmethod
+    def quartile(datas: list[float]) -> list[float]:
+        if not datas:
+            raise ValueError("Input data cannot be empty")
+        try:
+            datas = np.array(datas, dtype=float)
+        except ValueError:
+            raise ValueError("Input data must contain only numeric values")
+
+        percentiles = [np.percentile(datas, p) for p in (25, 50, 75)]
+        mean = float(np.mean(datas))  # Avoid rounding for flexibility
+        return percentiles + [mean]
+
+    @staticmethod
+    def mean_reversion(datas):
+        if len(datas) != 2:
+            raise ValueError("Input datas must be a tuple of (any, list of prices)")
+        _, prices = datas
+        if not prices:
+            raise ValueError("Price data cannot be empty")
+        try:
+            prices = np.array(prices, dtype=float)
+        except ValueError:
+            raise ValueError("Price data must contain only numeric values")
+
+        # Fit linear regression
+        reg = LinearRegression()
+        idx = np.arange(1, len(prices) + 1)
+        reg.fit(idx.reshape(-1, 1), prices)
+
+        # Calculate trend line and bands
+        result = {}
+        result["TL"] = reg.intercept_ + idx * reg.coef_[0]
+        result["y-TL"] = prices - result["TL"]
+        result["SD"] = np.std(result["y-TL"], ddof=1)  # Sample standard deviation
+        if result["SD"] == 0:
+            logger.warning("Standard deviation is zero, using small value to avoid division by zero")
+            result["SD"] = 1e-10
+
+        for i in range(1, 4):
+            result[f"TL-{i}SD"] = result["TL"] - i * result["SD"]
+            result[f"TL+{i}SD"] = result["TL"] + i * result["SD"]
+        result["close"] = prices
+
+        # Calculate probabilities
+        last_price = prices[-1]
+        band_labels = Math._generate_band_labels()
+        up_prob, hold_prob, down_prob = 0.0, 0.0, sum(Math.PROB_WEIGHTS.value)
+        for idx, band in enumerate(band_labels):
+            if last_price < result[band][-1]:
+                up_prob += Math.PROB_WEIGHTS.value[idx]
+                down_prob -= Math.PROB_WEIGHTS.value[idx]
             else:
-                hold_prob += prob_data[idx]
-                down_prob -= prob_data[idx]
+                hold_prob += Math.PROB_WEIGHTS.value[idx]
+                down_prob -= Math.PROB_WEIGHTS.value[idx]
                 break
 
-        TL = df["TL"][-1]
-        expect_val_bull_1 = up_prob * (TL - lastPrice) - down_prob * lastPrice
-        expect_val_bull_2 = up_prob * (TL - lastPrice) - down_prob * (
-            lastPrice - df["TL-3SD"][-1]
-        )
-        expect_val_bear_1 = down_prob * (lastPrice - TL) - up_prob * (
-            df["TL+3SD"][-1] - lastPrice
-        )
+        # Calculate expected values
+        TL = result["TL"][-1]
+        expect_val_bull_1 = up_prob * (TL - last_price) - down_prob * last_price
+        expect_val_bull_2 = up_prob * (TL - last_price) - down_prob * (last_price - result["TL-3SD"][-1])
+        expect_val_bear_1 = down_prob * (last_price - TL) - up_prob * (result["TL+3SD"][-1] - last_price)
 
         return {
             "prob": [up_prob * 100, hold_prob * 100, down_prob * 100],
-            "TL": TL,
+            "TL": [float(TL)],
             "expect": [expect_val_bull_1, expect_val_bull_2, expect_val_bear_1],
-            "staff": [df[title][-1] for title in comp_list],
+            "targetprice": [float(result[title][-1]) for title in band_labels]
         }
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [100, 102, 101, 103, 105, 104]
+    sample_prices = ([], [100, 102, 101, 103, 105, 104])  # For mean_reversion
+
+    # Test std
+    std_result, band_labels = Math.std(sample_data)
+    print("std result:", {k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in std_result.items()})
+    print("Band labels:", band_labels)
+
+    # Test quartile
+    quartile_result = Math.quartile(sample_data)
+    print("Quartile result:", quartile_result)
+
+    # Test mean_reversion
+    mr_result = Math.mean_reversion(sample_prices)
+    print("Mean reversion result:", mr_result)

@@ -1,106 +1,91 @@
 import os
 import sys
 import yaml
-import shutil
-from termcolor import *
 from pathlib import Path
 import argparse
 
-from utils.output import ResultOutput
 from Database.finmind import Finminder
 
-"""
-parameter -> sel
-Description: EPS year
-# N: This year
-# 0: N + 0
-# 1: N + 1
-# 2: N + 2
+sys.path.append(os.path.dirname(__file__))
 
-parameter -> level
-Description: select forward eps value
-# 0: high, 1: low, 2: average, 3: medium
-"""
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "-sel",
-    type=int,
-    default=1,
-    help="Select EPS year, N: This year, 0: N+0, 1: N+1, 2: N+2",
-)
-parser.add_argument(
-    "-level",
-    type=int,
-    default=4,
-    help="Select forward eps value\n1: high, 2: low, 3: average, 4: medium",
-)
-parser.add_argument(
-    "-year", type=float, default=4.5, help="Data calculation length(unit:year)"
-)
-parser.add_argument("-e_eps", type=float, default=None)
-
-args = parser.parse_args()
-
-sys.path.append(os.path.join(os.path.dirname(__file__)))
-
-from calculator.stock_select import get_etf_constituents, get_institutional_top50
+from utils.utils import load_token
+from utils.output import result_output
 from calculator.calculator import calculator
+from calculator.stock_select import fetch_etf_constituents, fetch_institutional_top50
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Stock analysis program")
+    parser.add_argument(
+        "-level",
+        type=int,
+        default=4,
+        choices=[1, 2, 3, 4],
+        help="Forward EPS value (1: high, 2: low, 3: average, 4: medium)"
+    )
+    parser.add_argument(
+        "-year",
+        type=float,
+        default=4.5,
+        help="Data calculation length (years)"
+    )
+    args = parser.parse_args()
+    return [args.level, args.year]
+
+def get_stock_lists(user_input: str) -> dict[str, dict[str]]:
+    # 1. 查詢ETF成分股
+    if user_input == "1":
+        sub_user_input = input("1.0050, 006201, 0051\n2. 自行輸入\n輸入: ")
+        StockLists = {}
+        etf_list = None
+        if sub_user_input == "1":
+            etf_list = ["0050", "006201", "0051"]
+        elif sub_user_input == "2":
+            etf_list = input("請用空格隔開: ").split()
+        for etf in etf_list:
+            StockLists[etf] = fetch_etf_constituents(etf)
+        return StockLists
+
+    # 2. 查詢個股
+    elif user_input == "2":
+        return {"User_Choice": input("請用空格隔開: ").split()}
+
+    # 3.三大法人買賣超
+    elif user_input == "3":
+        return {" Institutional_Investors": fetch_institutional_top50()}
+
+    # 4. 退出
+    elif user_input == "4":
+        return None
 
 if __name__ == "__main__":
     new_result = Path("results")
-    EPSLists = []  # set your EST eps in here
-    with open("token.yaml", "r") as file:
-        Token = yaml.safe_load(file)
-
-    Database = Finminder(Token)
+    eps_lists = None  # set your EST eps in here
+    
+    token = load_token()
+    db = Finminder(token)
 
     # create folder
     new_result.mkdir(parents=True, exist_ok=True)
 
     # Read the caculate Parameter
-    parameter = [args.level, args.year, args.e_eps]
+    params = parse_arguments()
 
     while True:
         os.system("cls")
-        UserInput = input(
+        user_input = input(
             "1. 查詢ETF成分股 \n2. 查詢個股 \n3. 三大法人買賣超 \n4. 退出 \n輸入: "
         )
-        StockLists = {}
+        stock_lists = get_stock_lists(user_input)
+        print(stock_lists)
 
-        # 1. 查詢ETF成分股
-        if UserInput == "1":
-            UserInput = input("1.0050, 006201, 0051\n2. 自行輸入\n輸入: ")
-            ETFList = None
-            if UserInput == "1":
-                ETFList = ["0050", "006201", "0051"]
-            elif UserInput == "2":
-                ETFList = input("請用空格隔開: ").split(" ")
-            for etf in ETFList:
-                StockLists[etf] = get_etf_constituents(etf)
-
-        # 2. 查詢個股
-        elif UserInput == "2":
-            StockLists = {"User_Choice": input("請用空格隔開: ").split(" ")}
-
-        # 3.三大法人買賣超
-        elif UserInput == "3":
-            StockLists = {" Institutional_Investors": get_institutional_top50()}
-
-        # 4. 退出
-        elif UserInput == "4":
+        if not stock_lists:
             break
 
-        else:
-            print("Enter Error!!")
-            input()
-            continue
-        for title, StockList in StockLists.items():
-            print(title, StockList)
+        for title, stock_list in stock_lists.items():
+            print(title, stock_list)
 
             # Get Data
-            StockDatas = calculator(Database, StockList, parameter)
-            ResultOutput(new_result / Path(title), StockDatas, EPSLists)
+            StockDatas = calculator(db, stock_list, params)
+            result_output(new_result / Path(title), StockDatas, eps_lists)
         print("Enter to continue...")
         input()

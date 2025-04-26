@@ -1,9 +1,15 @@
 import csv
+import logging
+import requests
+from pathlib import Path
+from django.http import HttpResponse
 
-from utils.utils import write2txt, dict2list, write2csv, getProfit, getTarget
+from utils.utils import dict2list, get_profit, get_target, load_token
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-rowtitle = [
+ROW_TITLE = [
     "名稱",
     "代號",
     "產業",
@@ -46,9 +52,9 @@ rowtitle = [
     "PE(平均)",
     "PE(TL+3SD)",
     "PE(TL+2SD)",
-    "PE(TL+SD)",
+    "PE(TL+1SD)",
     "PE(TL)",
-    "PE(TL-SD)",
+    "PE(TL-1SD)",
     "PE(TL-2SD)",
     "PE(TL-3SD)",
     # ===========
@@ -58,196 +64,285 @@ rowtitle = [
     "PB(平均)",
     "PB(TL+3SD)",
     "PB(TL+2SD)",
-    "PB(TL+SD)",
+    "PB(TL+1SD)",
     "PB(TL)",
-    "PB(TL-SD)",
+    "PB(TL-1SD)",
     "PB(TL-2SD)",
     "PB(TL-3SD)",
     # ===========
     "PEG",
 ]
 
+def write2csv(result_path, csvdata):
+    with result_path.open(mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(csvdata)
 
-def csvOutput(result_path, StockDatas):
+def write2txt(msg, filepath=None):
+    with filepath.open(mode="a", encoding="utf-8") as file:
+        file.write(f"{msg}\n")
+    print(msg)
+
+def csv_output(result_path, stock_datas):
     result_path = result_path.with_suffix(".csv")
-    write2csv(result_path, rowtitle)
-    for No, (StockID, StockData) in enumerate(StockDatas.items()):
-        write2csv(result_path, dict2list(StockData))
+    write2csv(result_path, ROW_TITLE)
+    for stock_id, stock_data in stock_datas.items():
+        csv_row = dict2list(stock_data)
+        write2csv(result_path, csv_row)
 
+def txt_output(result_path, stock_datas, eps_lists=None):
+    result_path = result_path.with_suffix(".txt")
 
-def txtOutput(result_path, StockDatas, EPSLists=None):
-    for No, (StockID, StockData) in enumerate(StockDatas.items()):
+    for idx, (stock_id, stock_data) in enumerate(stock_datas.items()):
+        if not stock_data:
+            logger.warning(f"Skipping empty stock data for {stock_id}")
+            continue
+
+        close_price = float(stock_data.get("價格", 0.0))
+        if not close_price:
+            logger.warning(f"Missing or invalid price for {stock_id}")
+            continue
+
+        # Select EPS
+        eps = None
+        if eps_lists and idx < len(eps_lists) and eps_lists[idx] is not None:
+            eps = float(eps_lists[idx])
+        else:
+            eps_est = stock_data.get("Anue", {}).get("EPS(EST)", None)
+            eps = float(eps_est) if eps_est else float(stock_data.get("EPS(TTM)", 0.0))
+        bps = float(stock_data.get("BPS", 0.0))
+
         text = ""
-        fw = result_path.with_suffix(".txt")
-        ClossPrice = StockData["價格"]
-        if EPSLists and EPSLists[No]:
-            eps = EPSLists[No]
-        eps = (
-            StockData["Anue"]["EPS(EST)"]
-            if StockData["Anue"]["EPS(EST)"]
-            else StockData["EPS(TTM)"]
-        )
-        bps = StockData["BPS"]
-
+# Stock Overview
         text += f"""
 ============================================================================
 
-股票名稱: {StockData["名稱"]}		股票代號: {StockData["代號"]}                    
-公司產業: {StockData["產業"]}		交易所: {StockData["交易所"]}
-公司資訊: {StockData["資訊"]}
+股票名稱: {stock_data.get('名稱', 'N/A')}		股票代號: {stock_data.get('代號', 'N/A')}                    
+公司產業: {stock_data.get('產業', 'N/A')}		交易所: {stock_data.get('交易所', 'N/A')}
+公司資訊: {stock_data.get('資訊', 'N/A')}
 
-目前股價: {ClossPrice:>10.2f}
-EPS(TTM): {StockData["EPS(TTM)"]:>10.2f}          BPS: {bps:>10.2f}
-PE(TTM): {StockData["PE(TTM)"]:>10.2f}          PB(TTM): {StockData["PB(TTM)"]:>10.2f}
+目前股價: {close_price:>10.2f}
+EPS(TTM): {stock_data.get('EPS(TTM)', 0.0):>10.2f}          BPS: {bps:>10.2f}
+PE(TTM): {stock_data.get('PE(TTM)', 0.0):>10.2f}          PB(TTM): {stock_data.get('PB(TTM)', 0.0):>10.2f}
 """
 
-        TargetPrice = StockData["Yahoo_1yTargetEst"]
-        if TargetPrice:
-            Profit = getProfit(TargetPrice, ClossPrice)
+# Yahoo Finance Target
+        target_price = stock_data.get("Yahoo_1yTargetEst", 0.0)
+        if target_price:
+            profit = get_profit(target_price, close_price)
             text += f"""
 ============================================================================
 Yahoo Finance 1y Target Est....
 
-目標價位: {TargetPrice:>10.2f}          潛在漲幅: {Profit:>10.2f}%
+目標價位: {target_price:>10.2f}          潛在漲幅: {profit:>10.2f}%
 """
         else:
-            pass
+            logger.warning(f"{stock_id}: Missing Yahoo Finance Target")
 
-        expect = StockData["MeanReversion"]["expect"]
-        prob = StockData["MeanReversion"]["prob"]
-        TargetPrice = StockData["MeanReversion"]["TL"]
-        Profit = getProfit(TargetPrice, ClossPrice)
-        expectProfitRate = [expect[i] / ClossPrice * 100 for i in range(3)]
-        text += f"""
+# Mean Reversion
+        try:
+            prob = [stock_data[key] for key in ["往上機率", "區間震盪機率", "往下機率"]]
+            expect = [stock_data[key] for key in ["保守做多期望值", "樂觀做多期望值", "樂觀做空期望值"]]
+            tl_price = float(stock_data.get("TL價", 0.0))
+            profit = get_profit(tl_price, close_price)
+            expect_profit_rate = [e / close_price * 100 if close_price else 0.0 for e in expect]
+            text += f"""
 ============================================================================
 股價均值回歸......
 
 均值回歸適合使用在穩定成長的股票上，如大盤or台積電等，高速成長及景氣循環股不適用，請小心服用。
 偏離越多標準差越遠代表趨勢越強，請勿直接進場。
 
-{StockData["代號"]} 往上的機率為: {prob[0]:>10.2f}%, 維持在這個區間的機率為: {prob[1]:>10.2f}%, 往下的機率為: {prob[2]:>10.2f}%
+{stock_data["代號"]} 往上的機率為: {prob[0]:>10.2f}%, 維持在這個區間的機率為: {prob[1]:>10.2f}%, 往下的機率為: {prob[2]:>10.2f}%
 
-目前股價: {ClossPrice:>10.2f}, TL價: {StockData["MeanReversion"]["TL"]:>10.2f}, TL價潛在漲幅: {Profit:>10.2f}
+目前股價: {close_price:>10.2f}, TL價: {tl_price:>10.2f}, TL價潛在漲幅: {profit:>10.2f}
 做多評估：
-期望值為: {expect[0]:>10.2f}, 期望報酬率為: {expectProfitRate[0]:>10.2f}% (保守計算: 上檔TL，下檔歸零)
-期望值為: {expect[1]:>10.2f}, 期望報酬率為: {expectProfitRate[1]:>10.2f}% (樂觀計算: 上檔TL，下檔-3SD)
+期望值為: {expect[0]:>10.2f}, 期望報酬率為: {expect_profit_rate[0]:>10.2f}% (保守計算: 上檔TL，下檔歸零)
+期望值為: {expect[1]:>10.2f}, 期望報酬率為: {expect_profit_rate[1]:>10.2f}% (樂觀計算: 上檔TL，下檔-3SD)
 
 做空評估: 
-期望值為: {expect[2]:>10.2f}, 期望報酬率為: {expectProfitRate[2]:>10.2f}% (樂觀計算: 上檔+3SD，下檔TL)
+期望值為: {expect[2]:>10.2f}, 期望報酬率為: {expect_profit_rate[2]:>10.2f}% (樂觀計算: 上檔+3SD，下檔TL)
 """
+        except KeyError as e:
+            logger.warning(f"{stock_id}: Missing Mean Reversion data: {e}")
 
-        TargetPrice = StockData["MeanReversion"]["staff"]
-        Profit = [getProfit(TargetPrice[i], ClossPrice) for i in range(7)]
-        text += f"""
+# Five-Line Spectrum (樂活五線譜)
+        try:
+            target_prices = [stock_data[key] for key in ["超極樂觀","極樂觀", "樂觀", "趨勢", "悲觀", "極悲觀", "超極悲觀"]]
+            profits = [get_profit(tp, close_price) for tp in target_prices]
+            text += f"""
 ============================================================================
 樂活五線譜......      
 
 
-    超極樂觀價位: {TargetPrice[0]:>10.2f}, 潛在漲幅: {Profit[0]:>10.2f}%
-    極樂觀價位:   {TargetPrice[1]:>10.2f}, 潛在漲幅: {Profit[1]:>10.2f}%
-    樂觀價位:     {TargetPrice[2]:>10.2f}, 潛在漲幅: {Profit[2]:>10.2f}%
-    趨勢價位:     {TargetPrice[3]:>10.2f}, 潛在漲幅: {Profit[3]:>10.2f}%
-    悲觀價位:     {TargetPrice[4]:>10.2f}, 潛在漲幅: {Profit[4]:>10.2f}%
-    極悲觀價位:    {TargetPrice[5]:>10.2f}, 潛在漲幅: {Profit[5]:>10.2f}%
-    超極悲觀價位:  {TargetPrice[6]:>10.2f}, 潛在漲幅: {Profit[6]:>10.2f}%
+    超極樂觀價位: {target_prices[0]:>10.2f}, 潛在漲幅: {profits[0]:>10.2f}%
+    極樂觀價位:   {target_prices[1]:>10.2f}, 潛在漲幅: {profits[1]:>10.2f}%
+    樂觀價位:     {target_prices[2]:>10.2f}, 潛在漲幅: {profits[2]:>10.2f}%
+    趨勢價位:     {target_prices[3]:>10.2f}, 潛在漲幅: {profits[3]:>10.2f}%
+    悲觀價位:     {target_prices[4]:>10.2f}, 潛在漲幅: {profits[4]:>10.2f}%
+    極悲觀價位:    {target_prices[5]:>10.2f}, 潛在漲幅: {profits[5]:>10.2f}%
+    超極悲觀價位:  {target_prices[6]:>10.2f}, 潛在漲幅: {profits[6]:>10.2f}%
 """
-        AnueDatas = StockData["Anue"]
-        if AnueDatas["EPS(EST)"]:
-            TargetPrice = AnueDatas["Factest目標價"]
-            Profit = getProfit(TargetPrice, ClossPrice)
-            text += f"""
+        except KeyError as e:
+            logger.warning(f"{stock_id}: Missing Five-Line Spectrum data: {e}")
+
+# FactSet Estimates
+        if stock_data.get("EPS(EST)", None):
+            eps_est = float(stock_data.get("EPS(EST)", 0.0))
+            if eps_est:
+                target_price = float(stock_data.get("Factest目標價", 0.0))
+                profit = get_profit(target_price, close_price)
+                text += f"""
 ============================================================================
 Factest預估
 
-估計EPS: {AnueDatas["EPS(EST)"]:>10.2f}  預估本益比：    {AnueDatas["PE(EST)"]:>10.2f}
-Factest目標價: {TargetPrice:>10.2f}  推算潛在漲幅為:  {Profit:>10.2f}
-資料日期: {AnueDatas["資料時間"]}  
-url: {AnueDatas["ANUEurl"]}
+估計EPS: {eps_est:>10.2f}  預估本益比：    {stock_data["PE(EST)"]:>10.2f}
+Factest目標價: {target_price:>10.2f}  推算潛在漲幅為:  {profit:>10.2f}
+資料日期: {stock_data["資料時間"]}  
+url: {stock_data["ANUEurl"]}
 """
         else:
-            pass
+            logger.warning(f"{stock_id}: Missing FactSet Estimates")
 
-        rate = StockData["ESTPER"]
-        TargetPrice = [getTarget(rate[i], eps) for i in range(4)]
-        Profit = [getProfit(TargetPrice[i], ClossPrice) for i in range(4)]
         text += f"""
+****************************************************************************
+*                           以下資料使用的EPS, BPS                         *
+*                        EPS: {eps:>10.2f} BPS: {bps:>10.2f}                   *    
+****************************************************************************
+"""
+
+# PE Quartiles
+        try:
+            pe_rates = [stock_data[key] for key in ["PE(25%)", "PE(50%)", "PE(75%)", "PE(平均)"]]
+            pe_target_prices = [get_target(rate, eps) for rate in pe_rates]
+            pe_profits = [get_profit(tp, close_price) for tp in pe_target_prices]
+            text += f"""
 ============================================================================
 本益比四分位數與平均本益比......
 
-PE 25% : {rate[0]:>10.2f}          目標價位: {TargetPrice[0]:>10.2f}          潛在漲幅: {Profit[0]:>10.2f}%
-PE 50% : {rate[1]:>10.2f}          目標價位: {TargetPrice[1]:>10.2f}          潛在漲幅: {Profit[1]:>10.2f}%
-PE 75% : {rate[2]:>10.2f}          目標價位: {TargetPrice[2]:>10.2f}          潛在漲幅: {Profit[2]:>10.2f}%
-PE平均% : {rate[3]:>10.2f}          目標價位: {TargetPrice[3]:>10.2f}          潛在漲幅: {Profit[3]:>10.2f}%
+PE 25% : {pe_rates[0]:>10.2f}          目標價位: {pe_target_prices[0]:>10.2f}          潛在漲幅: {pe_profits[0]:>10.2f}%
+PE 50% : {pe_rates[1]:>10.2f}          目標價位: {pe_target_prices[1]:>10.2f}          潛在漲幅: {pe_profits[1]:>10.2f}%
+PE 75% : {pe_rates[2]:>10.2f}          目標價位: {pe_target_prices[2]:>10.2f}          潛在漲幅: {pe_profits[2]:>10.2f}%
+PE平均% : {pe_rates[3]:>10.2f}          目標價位: {pe_target_prices[3]:>10.2f}          潛在漲幅: {pe_profits[3]:>10.2f}%
 """
+        except KeyError as e:
+            logger.warning(f"{stock_id}: Missing PE Quartiles data: {e}")
 
-        rate = StockData["SDESTPER"]
-        TargetPrice = [getTarget(rate[i], eps) for i in range(7)]
-        Profit = [getProfit(TargetPrice[i], ClossPrice) for i in range(7)]
-        text += f"""
+# PE Standard Deviation
+        try:
+            pe_sd_rates = [stock_data[key] for key in ["PE(TL+3SD)", "PE(TL+2SD)", "PE(TL+1SD)", "PE(TL)", "PE(TL-1SD)", "PE(TL-2SD)", "PE(TL-3SD)"]]
+            pe_sd_target_prices = [get_target(rate, eps) for rate in pe_sd_rates]
+            pe_sd_profits = [get_profit(tp, close_price) for tp in pe_sd_target_prices]
+            text += f"""
 ============================================================================
 本益比標準差......
 
-PE TL+3SD: {rate[0]:>10.2f}          目標價位: {TargetPrice[0]:>10.2f}          潛在漲幅: {Profit[0]:>10.2f}%
-PE TL+2SD: {rate[1]:>10.2f}          目標價位: {TargetPrice[1]:>10.2f}          潛在漲幅: {Profit[1]:>10.2f}%
-PE TL+1SD: {rate[2]:>10.2f}          目標價位: {TargetPrice[2]:>10.2f}          潛在漲幅: {Profit[2]:>10.2f}%
-PE TLSD  : {rate[3]:>10.2f}          目標價位: {TargetPrice[3]:>10.2f}          潛在漲幅: {Profit[3]:>10.2f}%
-PE TL-1SD: {rate[4]:>10.2f}          目標價位: {TargetPrice[4]:>10.2f}          潛在漲幅: {Profit[4]:>10.2f}%
-PE TL-2SD: {rate[5]:>10.2f}          目標價位: {TargetPrice[5]:>10.2f}          潛在漲幅: {Profit[5]:>10.2f}%
-PE TL-3SD: {rate[6]:>10.2f}          目標價位: {TargetPrice[6]:>10.2f}          潛在漲幅: {Profit[6]:>10.2f}%
+PE TL+3SD: {pe_sd_rates[0]:>10.2f}          目標價位: {pe_sd_target_prices[0]:>10.2f}          潛在漲幅: {pe_sd_profits[0]:>10.2f}%
+PE TL+2SD: {pe_sd_rates[1]:>10.2f}          目標價位: {pe_sd_target_prices[1]:>10.2f}          潛在漲幅: {pe_sd_profits[1]:>10.2f}%
+PE TL+1SD: {pe_sd_rates[2]:>10.2f}          目標價位: {pe_sd_target_prices[2]:>10.2f}          潛在漲幅: {pe_sd_profits[2]:>10.2f}%
+PE TL    : {pe_sd_rates[3]:>10.2f}          目標價位: {pe_sd_target_prices[3]:>10.2f}          潛在漲幅: {pe_sd_profits[3]:>10.2f}%
+PE TL-1SD: {pe_sd_rates[4]:>10.2f}          目標價位: {pe_sd_target_prices[4]:>10.2f}          潛在漲幅: {pe_sd_profits[4]:>10.2f}%
+PE TL-2SD: {pe_sd_rates[5]:>10.2f}          目標價位: {pe_sd_target_prices[5]:>10.2f}          潛在漲幅: {pe_sd_profits[5]:>10.2f}%
+PE TL-3SD: {pe_sd_rates[6]:>10.2f}          目標價位: {pe_sd_target_prices[6]:>10.2f}          潛在漲幅: {pe_sd_profits[6]:>10.2f}%
 """
+        except KeyError as e:
+            logger.warning(f"{stock_id}: Missing PE Standard Deviation data: {e}")
 
-        rate = StockData["ESTPBR"]
-        TargetPrice = [getTarget(rate[i], bps) for i in range(4)]
-        Profit = [getProfit(TargetPrice[i], ClossPrice) for i in range(4)]
-        text += f"""
+# PB Quartiles
+        try:
+            pb_rates = [stock_data[key] for key in ["PB(25%)", "PB(50%)", "PB(75%)", "PB(平均)"]]
+            pb_target_prices = [get_target(rate, bps) for rate in pb_rates]
+            pb_profits = [get_profit(tp, close_price) for tp in pb_target_prices]
+            text += f"""
 ============================================================================
 股價淨值比四分位數與平均本益比......
 
-PB 25% : {StockData["ESTPBR"][0]:>10.2f}           目標價位: {TargetPrice[0]:>10.2f}          潛在漲幅: {Profit[0]:>10.2f}%
-PB 50% : {StockData["ESTPBR"][1]:>10.2f}           目標價位: {TargetPrice[1]:>10.2f}          潛在漲幅: {Profit[1]:>10.2f}%
-PB 75% : {StockData["ESTPBR"][2]:>10.2f}           目標價位: {TargetPrice[2]:>10.2f}          潛在漲幅: {Profit[2]:>10.2f}%
-PB 平均 : {StockData["ESTPBR"][3]:>10.2f}           目標價位: {TargetPrice[3]:>10.2f}          潛在漲幅: {Profit[3]:>10.2f}%
+PB 25% : {pb_rates[0]:>10.2f}           目標價位: {pb_target_prices[0]:>10.2f}          潛在漲幅: {pb_profits[0]:>10.2f}%
+PB 50% : {pb_rates[1]:>10.2f}           目標價位: {pb_target_prices[1]:>10.2f}          潛在漲幅: {pb_profits[1]:>10.2f}%
+PB 75% : {pb_rates[2]:>10.2f}           目標價位: {pb_target_prices[2]:>10.2f}          潛在漲幅: {pb_profits[2]:>10.2f}%
+PB 平均 : {pb_rates[3]:>10.2f}           目標價位: {pb_target_prices[3]:>10.2f}          潛在漲幅: {pb_profits[3]:>10.2f}%
 """
+        except KeyError as e:
+            logger.warning(f"{stock_id}: Missing PB Quartiles data: {e}")
 
-        rate = StockData["SDESTPBR"]
-        TargetPrice = [getTarget(rate[i], bps) for i in range(7)]
-        Profit = [getProfit(TargetPrice[i], ClossPrice) for i in range(7)]
-        text += f"""
+# PB Standard Deviation
+        try:
+            pb_sd_rates = [stock_data[key] for key in ["PB(TL+3SD)", "PB(TL+2SD)", "PB(TL+1SD)", "PB(TL)", "PB(TL-1SD)", "PB(TL-2SD)", "PB(TL-3SD)"]]
+            pb_sd_target_prices = [get_target(rate, bps) for rate in pb_sd_rates]
+            pb_sd_profits = [get_profit(tp, close_price) for tp in pb_sd_target_prices]
+            text += f"""
 ============================================================================
 股價淨值比標準差......
 
-PB TL+3SD : {rate[0]:>10.2f}           目標價位: {TargetPrice[0]:>10.2f}          潛在漲幅: {Profit[0]:>10.2f}%
-PB TL+2SD : {rate[1]:>10.2f}           目標價位: {TargetPrice[1]:>10.2f}          潛在漲幅: {Profit[1]:>10.2f}%
-PB TL+1SD : {rate[2]:>10.2f}           目標價位: {TargetPrice[2]:>10.2f}          潛在漲幅: {Profit[2]:>10.2f}%
-PB TLSD   : {rate[3]:>10.2f}           目標價位: {TargetPrice[3]:>10.2f}          潛在漲幅: {Profit[3]:>10.2f}%
-PB TL-1SD : {rate[4]:>10.2f}           目標價位: {TargetPrice[4]:>10.2f}          潛在漲幅: {Profit[4]:>10.2f}%
-PB TL-2SD : {rate[5]:>10.2f}           目標價位: {TargetPrice[5]:>10.2f}          潛在漲幅: {Profit[5]:>10.2f}%
-PB TL-3SD : {rate[6]:>10.2f}           目標價位: {TargetPrice[6]:>10.2f}          潛在漲幅: {Profit[6]:>10.2f}%
+PB TL+3SD : {pb_sd_rates[0]:>10.2f}           目標價位: {pb_sd_target_prices[0]:>10.2f}          潛在漲幅: {pb_sd_profits[0]:>10.2f}%
+PB TL+2SD : {pb_sd_rates[1]:>10.2f}           目標價位: {pb_sd_target_prices[1]:>10.2f}          潛在漲幅: {pb_sd_profits[1]:>10.2f}%
+PB TL+1SD : {pb_sd_rates[2]:>10.2f}           目標價位: {pb_sd_target_prices[2]:>10.2f}          潛在漲幅: {pb_sd_profits[2]:>10.2f}%
+PB TL     : {pb_sd_rates[3]:>10.2f}           目標價位: {pb_sd_target_prices[3]:>10.2f}          潛在漲幅: {pb_sd_profits[3]:>10.2f}%
+PB TL-1SD : {pb_sd_rates[4]:>10.2f}           目標價位: {pb_sd_target_prices[4]:>10.2f}          潛在漲幅: {pb_sd_profits[4]:>10.2f}%
+PB TL-2SD : {pb_sd_rates[5]:>10.2f}           目標價位: {pb_sd_target_prices[5]:>10.2f}          潛在漲幅: {pb_sd_profits[5]:>10.2f}%
+PB TL-3SD : {pb_sd_rates[6]:>10.2f}           目標價位: {pb_sd_target_prices[6]:>10.2f}          潛在漲幅: {pb_sd_profits[6]:>10.2f}%
 """
+        except KeyError as e:
+            logger.warning(f"{stock_id}: Missing PB Standard Deviation data: {e}")
 
-        peg = StockData["PEG"]
-        if peg or eps != StockData["EPS(TTM)"]:
-            if eps != StockData["EPS(TTM)"]:
-                epsGrowth = (eps / StockData["EPS(TTM)"] - 1) * 100
-                peg = StockData["PE(TTM)"] / epsGrowth
-                TargetPrice = getTarget(epsGrowth, StockData["EPS(TTM)"])
+# PEG Valuation
+        peg = stock_data.get("PEG", 0.0)
+        peg = None if "N/A" in peg else float(peg)
+        if peg or eps != float(stock_data.get("EPS(TTM)", 0.0)):
+            if eps != float(stock_data.get("EPS(TTM)", 0.0)):
+                eps_growth = (eps / float(stock_data.get("EPS(TTM)", 0.0)) - 1) * 100
+                peg = float(stock_data.get("PE(TTM)", 0.0)) / eps_growth
+                target_price = get_target(eps_growth, float(stock_data.get("EPS(TTM)", 0.0)))
             else:
-                epsGrowth = getTarget(1 / peg, StockData["EPS(TTM)"])
-                TargetPrice = ClossPrice / peg
-            Profit = getProfit(TargetPrice, ClossPrice)
+                eps_growth = get_target(1 / peg, float(stock_data.get("EPS(TTM)", 0.0)))
+                target_price = close_price / peg
+            profit = get_profit(target_price, close_price)
             text += f"""
 ============================================================================
 PEG估值......
 
-PEG: {peg:>10.2f}           EPS成長率: {epsGrowth :>10.2f}
-目標價位: {TargetPrice:>10.2f}          潛在漲幅: {Profit:>10.2f}%
+PEG: {peg:>10.2f}           EPS成長率: {eps_growth :>10.2f}
+目標價位: {target_price:>10.2f}          潛在漲幅: {profit:>10.2f}%
 """
         else:
-            pass
+            logger.warning(f"{stock_id}: Missing PEG Valuation")
 
-    write2txt(text, fw)
+        write2txt(text, result_path)
+    return text
 
 
-def ResultOutput(result_path, StockDatas, EPSLists=None):
-    csvOutput(result_path, StockDatas)
-    txtOutput(result_path, StockDatas, EPSLists)
+def result_output(result_path, stock_datas, eps_lists=None):
+    if not isinstance(result_path, Path):
+        raise ValueError("result_path must be a pathlib.Path object")
+    if not stock_datas:
+        raise ValueError("stock_datas cannot be empty")
+
+    try:
+        csv_output(result_path, stock_datas)
+    except Exception as e:
+        logger.error(f"Failed to write CSV: {e}")
+
+    try:
+        return txt_output(result_path, stock_datas, eps_lists)
+    except Exception as e:
+        logger.error(f"Failed to write TXT: {e}")
+        return HttpResponse("伺服器錯誤", status=500)
+
+def telegram_print(msg, token_path="token.yaml"):
+    try:
+        tokens = load_token(token_path)
+        token = tokens.get("TelegramToken")
+        chat_id = tokens.get("TelegramchatID")
+        if not token or not chat_id:
+            logger.error("Missing TelegramToken or TelegramchatID in token file")
+            return False
+
+        url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        print(msg)
+        logger.info(f"Sent Telegram message: ...")
+        return True
+    except (requests.RequestException, KeyError) as e:
+        logger.error(f"Failed to send Telegram message: {e}")
+        return False

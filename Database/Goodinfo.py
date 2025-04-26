@@ -1,43 +1,186 @@
+import os
+import sys
+import logging
+
+sys.path.append(os.path.dirname(__file__) + "/..")
 from utils.utils import fetch_webpage
 
-headers = {
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+GOODINFO_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36",
     "Cookie": "CLIENT%5FID=20241210210956023%5F111%2E255%2E220%2E131; IS_TOUCH_DEVICE=F; SCREEN_SIZE=WIDTH=1710&HEIGHT=1112; TW_STOCK_BROWSE_LIST=2330; _ga=GA1.1.812880287.1733836199; _cc_id=28e3f970dec12837e20c15307c56ec28; panoramaId_expiry=1734441000958; panoramaId=cc21caa7184af9f0e6c620d0a8f8185ca02cc713f5ac9a4263f82337f1b4a2b7; panoramaIdType=panoDevice; __gads=ID=b2e3ed3af73d1ae3:T=1733836201:RT=1733922308:S=ALNI_Mb7ThRkzKYSy21PA-6lcXT9vRc3Kg; __gpi=UID=00000f896331f355:T=1733836201:RT=1733922308:S=ALNI_MZqCnVGqHlRq9KdKeQAuDHF4Gjfxw; __eoi=ID=f9846d25b9e203d1:T=1733836201:RT=1733922308:S=AA-AfjY-BVqunx2hOWeWbgCq5_UI; cto_bundle=Lk53dF84ZDdteU1aenVEZW9WZklPTG5FYU9MdDRjOFQ5NkVoZ1lYOTVnMzNVTFFDOUFNYXZyWjBmSndHemVhOFdhQTlMZHJUNCUyQiUyRm9RSlJpd0FBUXlYd2NDQmdXRkh0ZkM1SUY1VHM2b2NQc0ljcVJGSTFwY3RPRmI1WEwxRXBMTVUzUDgxWjBLSUVjOSUyQk1veUdMcFZjRDlsNVElM0QlM0Q; cto_bundle=4XBCG184ZDdteU1aenVEZW9WZklPTG5FYU9NcXlSZm1lU2RKOGgwaHlUM1RzWXU5QWMlMkJuR1lkb25qSjdRYUxHWWhsUEhMRGxCeHVuUVF6WGlGTkxjbVNuYmFqbERVRm11QjlTR0xBckVvdmE2ZlJFQmhQdURma3lnRHNjM25xOFpNNEg4WWZLc0wxZVN6c1lEUFZDM3VvNnlxdWFGV2FiNThNRSUyRlZ4N3ZxakZzT3I0cEclMkZYdm1NN2RQNSUyRlBUM1FQJTJCSE80YUxVVDlKUUFLblZuMllUZVBzaVdFZyUzRCUzRA; cto_bidid=NK15uF9ZWnQ2aGIwVGNqRUFJRGgxVUVSejh0b1dEczFNU0FJTmR1RVl5SnljdDVmY08xc1NndnRUZXZMYmVvJTJCMVNya2R5RVk1QWpEeiUyQnBsJTJCOUZJQTBWJTJGcGhTcWFvUGs1QkxuUCUyQnVjUU42MXZIQWxSb2xsVVFrNml2T2g0TG1NcHphS0I4YzdzQXVRVXpRSXlCZU1VV1M4SDN3JTNEJTNE; FCNEC=%5B%5B%22AKsRol-AsNGK3J633zneXVvjb6XxOsqQYrBvxCwcMi0GME-2BDMLBX3LEYQ83Li8Hw71LSdsgNxpfHUX3Nw3FGDMDQhm3wUeXgalEarK4zql1IO51tBobJmU-o44Bd5tOC0OcT6RNUf2w8Bl6YsQ6f2yA7JoK-Uwlw%3D%3D%22%5D%5D; _ga_0LP5MLQS7E=GS1.1.1733921765.2.1.1733922576.51.0.0",
 }
 
+def process_company_info(tr_elements):
+    company_info = {}
+
+    for tr in tr_elements:
+        try:
+            # Skip header rows or empty rows
+            if tr.find("th", class_="ls8") or not tr.find_all(["th", "td"]):
+                continue
+
+            # Extract all th and td elements
+            headers = tr.find_all("th")
+            cells = tr.find_all("td")
+
+            # Process rows with headers (th) and cells (td)
+            if headers and cells:
+                for header, cell in zip(headers, cells):
+                    key = header.get_text(strip=True)
+                    value = cell.get_text(strip=True)
+
+                    # Clean up value: remove extra annotations
+                    if "(" in value and ")" in value:
+                        value = value.split("(")[0].strip()
+                    if key and value:
+                        company_info[key] = value
+
+                # Handle cells with colspan (spanning multiple columns)
+                for cell in cells:
+                    if cell.get("colspan") in ["3", "4"]:
+                        key = headers[-1].get_text(strip=True) if headers else ""
+                        value = cell.get_text(strip=True)
+                        if key and value:
+                            company_info[key] = value
+
+            # Log if row structure is unexpected
+            elif not headers and cells:
+                logger.warning(f"Unexpected row structure: {tr.get_text(strip=True)}")
+
+        except Exception as e:
+            logger.error(f"Error processing row {tr.get_text(strip=True)}: {e}")
+            continue
+
+    return company_info
+
+def process_stock_trading_info(tr_elements):
+    trading_info = {}
+    current_headers = []
+
+    for tr in tr_elements:
+        try:
+            # Handle header row (stock ID, name, and date)
+            if tr.get("class") == ["bg_h0"] and tr.find("th", {"colspan": "8"}):
+                stock_info = tr.find("h2").get_text(strip=True)
+                stock_id, stock_name = stock_info.split("\xa0")
+                trading_info["股票代號"] = stock_id
+                trading_info["股票名稱"] = stock_name
+                data_date = tr.find("nobr", string=lambda x: x and "資料日期" in x)
+                if data_date:
+                    trading_info["資料日期"] = data_date.get_text(strip=True).split(": ")[1]
+                continue
+
+            # Capture headers (bg_h1 rows)
+            if tr.get("class") == ["bg_h1"] and not tr.find("td", {"colspan": "8"}):
+                current_headers = [th.get_text(strip=True) for th in tr.find_all("th")]
+                continue
+
+            # Process data rows (bgcolor="white")
+            if tr.get("bgcolor") == "white" and current_headers:
+                cells = tr.find_all("td")
+                if len(cells) <= len(current_headers):
+                    for header, cell in zip(current_headers, cells):
+                        key = header
+                        value = cell.get_text(strip=True)
+                        if cell.get("colspan") == "3":
+                            value = value.split("\xa0")[0]  # Extract primary value
+                        if key and value:
+                            trading_info[key] = value
+                else:
+                    logger.warning("Mismatched headers and cells in row: {}"
+                                   .format(tr.get_text(strip=True)))
+
+            # Process summary row (連漲連跌, 財報評分, 上市指數)
+            if tr.get("class") == ["bg_h1"] and tr.find("td", {"colspan": "8"}):
+                summary_text = tr.find("td").get_text(strip=True, separator=" ")
+                try:
+                    # Extract 連漲連跌
+                    if "連漲連跌" in summary_text:
+                        trend = summary_text.split("連漲連跌:")[1].split("財報評分")[0].strip()
+                        trading_info["連漲連跌"] = trend.replace("\xa0", " ")
+
+                    # Extract 財報評分
+                    if "財報評分" in summary_text:
+                        score_part = summary_text.split("財報評分:")[1].split("上市指數")[0].strip()
+                        score_parts = score_part.split("/")
+                        if len(score_parts) >= 2:
+                            trading_info["財報評分_最新"] = score_parts[0].strip().removeprefix("最新")
+                            trading_info["財報評分_平均"] = score_parts[1].strip().removeprefix("平均")
+                        else:
+                            logger.warning(f"Invalid 財報評分 format: {score_part}")
+                            trading_info["財報評分_最新"] = score_parts[0].strip().removeprefix("最新")
+                            trading_info["財報評分_平均"] = ""
+
+                    # Extract 上市指數
+                    if "上市指數" in summary_text:
+                        index = summary_text.split("上市指數 :")[1].strip()
+                        trading_info["上市指數"] = index.replace("\xa0", " ")
+                except Exception as e:
+                    logger.error(f"Error parsing summary row: {summary_text}: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Error processing row {tr.get_text(strip=True)}: {e}")
+            continue
+
+    return trading_info
 
 class Goodinfo:
     def __init__(self, stock_id: str) -> None:
         self.stock_id = stock_id
-        self.TTMPEG = self.get_peg()
-        self.CompanyINFO = self.get_company_info()
+        self.stock_data = self.get_trading_data()
+        self.company_info = self.get_company_info()
+        self.TTMPEG = self.stock_data.get("PEG", None) if self.stock_data else None
+        self.business = self.company_info.get("主要業務", None) if self.company_info else None
 
-    def get_peg(self) -> str | None:
-        """
-        Get PEG ratio from Goodinfo website for given stock ID
-        Args:
-            stock_id: Stock ID to lookup
-        Returns:
-            PEG ratio as string if found, None otherwise
-        """
+    def get_trading_data(self):
         url = f"https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID={self.stock_id}"
-        soup = fetch_webpage(url, headers)
-        data_rows = soup.find_all("tr", {"align": "center", "bgcolor": "white"})
-        if not data_rows or len(data_rows) < 2:
-            return None
-
         try:
-            peg_cell = data_rows[1].select("td")[7]
-            peg_text = peg_cell.text.strip()
-            try:
-                return float(peg_text)
-            except ValueError:
+            soup = fetch_webpage(url, headers=GOODINFO_HEADERS)
+            # Find the table containing trading data (more flexible selector)
+            table = soup.find("table", class_=lambda x: x and "b0v1h0" in x)
+            if not table:
+                logger.warning(f"No trading data table found for stock {self.stock_id}")
                 return None
 
-        except (IndexError, AttributeError):
+            stock_data = table.find_all("tr")
+            if not stock_data:
+                logger.warning(f"No stock data rows found for stock {self.stock_id}")
+                return None
+
+            return process_stock_trading_info(stock_data)
+        except Exception as e:
+            logger.error(f"Failed to retrieve trading data for stock {self.stock_id}: {e}")
             return None
 
-    def get_company_info(self) -> str | None:
+    def get_company_info(self):
         url = f"https://goodinfo.tw/tw/BasicInfo.asp?STOCK_ID={self.stock_id}"
-        soup = fetch_webpage(url, headers)
-        return soup.find_all("td", {"bgcolor": "white", "colspan": "3"}, "p")[14].text
+        try:
+            soup = fetch_webpage(url, headers=GOODINFO_HEADERS)
+            # Find the table containing company info (more flexible selector)
+            table = soup.find("table", class_=lambda x: x and "b0v1h1" in x)
+            if not table:
+                logger.warning(f"No company info table found for stock {self.stock_id}")
+                return None
+
+            company_data = table.find_all("tr")
+            if not company_data:
+                logger.warning(f"No company info rows found for stock {self.stock_id}")
+                return None
+
+            return process_company_info(company_data)
+        except Exception as e:
+            logger.error(f"Failed to retrieve company info for stock {self.stock_id}: {e}")
+            return None
+
+if __name__ == "__main__":
+    # Example usage
+    stock_id = "2330"  # Example stock ID
+    goodinfo = Goodinfo(stock_id)
+    print(f"PEG: {goodinfo.TTMPEG}")
+    print(f"Business: {goodinfo.business}")
+    print(f"Stock Data: {goodinfo.stock_data}")
+    print(f"Company Info: {goodinfo.company_info}")

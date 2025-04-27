@@ -1,9 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
 from groq import Groq
+from datetime import datetime
 import time
 import yaml
 import feedparser
+import html
+import re
 from utils.Logger import setup_logger
 # Groq API Key
 GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
@@ -20,6 +23,14 @@ class NewsParser:
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         }
+
+    def clean_all(self, text):
+        # 1. 解碼 HTML Entities，如 &nbsp; &lt;
+        text = html.unescape(text)
+        # 2. 移除 HTML 標籤，如 <div>、<a href=...>等
+        text = re.sub(r"<[^>]+>", "", text)
+        return text
+    
     def rss_parser(self, url):
         feed = feedparser.parse(url)
         res_list = []
@@ -39,7 +50,7 @@ class NewsParser:
         # 檢查網站是否支援
         return any(site in url for site in self.parser_dict.keys())
     
-    def news_request(self, url):
+    def news_request(self, url, params=None):
         """
         Sends an HTTP GET request to the specified URL and parses the response using BeautifulSoup.
 
@@ -52,7 +63,7 @@ class NewsParser:
             none: any exception
         """
         try:
-            response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers, params=params)
             response.raise_for_status()  # 檢查 HTTP 請求是否成功
             soup = BeautifulSoup(response.text, 'html.parser')
             return soup
@@ -97,6 +108,34 @@ class NewsParser:
         
         self.logger.error("不支援的網站")
         return None
+    
+    def fetch_cynes_newslist(self, url):
+        headers = {"User-Agent": "Mozilla/5.0"}
+        params = {"limit": 20}
+        response = requests.get(url, params, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+
+        result = []
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()
+
+        data = response.json()
+        articles = data["items"]["data"]
+
+        
+        for article in articles:
+            title = article["title"]
+            content = self.clean_all(article["content"])
+            pub_time = datetime.fromtimestamp(article["publishAt"]).strftime("%Y-%m-%d %H:%M")
+            news_url = f"https://news.cnyes.com/news/id/{article['newsId']}"
+            result.append({
+                "title": title,
+                "content": content,
+                "time": pub_time,
+                "url": news_url
+            })
+        return result
 
     def fetch_news_list(self, url, news_number=10):
         """
@@ -132,6 +171,8 @@ class NewsParser:
                     news_result.append({'title' : title, 'content' : content, 'url' : link, "src" : "crawl"})
                 except Exception as e:
                     self.logger.error(e)
+        elif "cnyes.com" in url:
+            news_result = self.fetch_cynes_newslist(url)
         else:
             news_result = self.rss_parser(url)
         
@@ -210,7 +251,15 @@ if __name__ == "__main__":
     # url = 'https://udn.com/news/story/7240/8670516?from=udn-catebreaknews_ch2'
     # fetch_news_content(url)
     url = 'https://udn.com/news/breaknews/1/5#breaknews'
+    url = 'https://api.cnyes.com/media/api/v1/newslist/category/headline'
     # fetch_news_list(url, "udn")
     NP = NewsParser()
-    r = NP.get_vocus_ieobserve_articles()
+    url = 'https://morss.it/:proxy/https://www.macromicro.me/blog'
+    data = NP.rss_parser(url)
+    print(data[0])
+    
+    # feed = feedparser.parse(url)
+    # for entry in feed.entries:
+    #     print(entry.published)
+    #     break
     

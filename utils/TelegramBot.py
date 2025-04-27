@@ -2,6 +2,7 @@ from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup, Bo
 from telegram import InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 from telegram.ext import ConversationHandler, JobQueue
+from sqlalchemy import select, exists
 import yaml
 import requests
 import time
@@ -10,6 +11,7 @@ import re
 
 from server_main import Individual_search
 from Database.MoneyDJ import MoneyDJ
+from Database.DB import DB
 from utils.AI import GroqAI
 from utils.Logger import setup_logger
 from DevFeat.news_parser import NewsParser
@@ -35,6 +37,7 @@ class TelegramBot:
         self.logger = setup_logger()
         self.ASK_CODE = 1
         self.subscribers = set()
+        self.db = DB()
         # self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
         self.report_urls = [
             "https://blog.fugle.tw/",
@@ -129,7 +132,7 @@ class TelegramBot:
         if ticker is None or res is False:
             msg = "[ERROR] Wrong ticker information"
             await update.message.reply_text(msg)
-            return
+            return ConversationHandler.END
         
         msg = f"你輸入的代碼是 {ticker}，幫你處理！"
         await update.message.reply_text(msg)
@@ -258,39 +261,44 @@ class TelegramBot:
             await context.bot.send_document(chat_id=chat_id, document=filename)
             time.sleep(5)
 
+    async def cmd_news_summary(self, update, context):
+        context.job_queue.run_repeating(self.scheduled_task, interval=60*30, first=0, data={"chat_id": update.effective_chat.id})
+        await update.message.reply_text("設定每 30 分鐘傳送摘要檔案！(content available only)")
+
     async def get_reports(self, context: ContextTypes.DEFAULT_TYPE):
 
         group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
 
         for idx, url in enumerate(self.report_urls):
-            report = self.NP.fetch_report(url)[0] # get lastest report
-            news = f"{report['title']}\n{report['url']}"
+            report = self.NP.fetch_report(url)[0]
+            exists = self.db.checkReport(report)
 
-            if news != context.job.data[idx].get("last_news"):
-                await context.bot.send_message(chat_id=group_id, text=news)
-                self.logger.debug("update news")
-                context.job.data[idx]["last_news"] = news  # ✅ 更新news
+            if not exists:
+                article = f"{report['title']}\n{report['url']}"
+                await context.bot.send_message(chat_id=group_id, text=article)
+                self.logger.debug("update report")
 
-    async def cmd_news_summary(self, update, context):
-        context.job_queue.run_repeating(self.scheduled_task, interval=60*30, first=0, data={"chat_id": update.effective_chat.id})
-        await update.message.reply_text("設定每 30 分鐘傳送摘要檔案！(content available only)")
 
     async def get_news(self, context: ContextTypes.DEFAULT_TYPE):
         # async with self.lock:
         for news_type, url in self.news_src_urls.items():
             self.logger.info(f"NEWS SOURCE : {news_type}")
-            res_list = self.NP.fetch_news_list(url) # Get news from parser only
+            news_list = self.NP.fetch_news_list(url) # Get news from parser only
 
             titles = [news['title'] for news in self.news_data[news_type]]
             if len(titles) != 0:
-                for ele in res_list:
+                for ele in news_list:
                     if ele['title'] not in titles and not self.subscribers:
                         self.logger.info("SEND NEWS")
                         await self.send_news(ele)
             else:
                 self.logger.debug("No news")
 
-            self.news_data[news_type] = res_list # update news
+            self.news_data[news_type] = news_list # update news
+
+            # update DB
+            for news in news_list:
+                self.db.checkNews(news)
 
         self.logger.info("Fetch news sources done")
 
@@ -324,8 +332,7 @@ class TelegramBot:
         # 錯誤處理
         application.add_error_handler(self.cmd_error)
         # repeat task
-        init_list = [{"last_news": None} for _ in self.report_urls]
-        application.job_queue.run_repeating(callback=self.get_reports , interval=600, first=1, data=init_list, name="get_reports")
+        application.job_queue.run_repeating(callback=self.get_reports , interval=600, first=1, data={}, name="get_reports")
         application.job_queue.run_repeating(callback=self.get_news    , interval=60,  first=1, data={}, name="get_news")
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
         # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))

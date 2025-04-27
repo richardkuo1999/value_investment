@@ -37,10 +37,13 @@ class TelegramBot:
         self.subscribers = set()
         # self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
         self.report_urls = [
-            "https://morss.it/:proxy:items=%7C%7C*[class=article-content__title]/https://uanalyze.com.tw/articles",
             "https://blog.fugle.tw/",
             "https://feed.cqd.tw/vocus/user/ieobserve", # source: https://github.com/CQD/feeder
-            "https://feed.cqd.tw/vocus/user/miula"
+            "https://feed.cqd.tw/vocus/user/miula",
+            "https://feed.cqd.tw/vocus/user/65ab564cfd897800018a88cc",
+            "https://morss.it/:proxy:items=%7C%7C*[class=article-content__title]/https://uanalyze.com.tw/articles",
+            "https://morss.it/:proxy/https://www.macromicro.me/blog",
+            "https://morss.it/:proxy/https://fintastic.trading/",
         ]
         self.bot_cmd = {"start" : "開始使用機器人", "help" : "使用說明", "esti" : "估算股票", "news" : "查看新聞",
                 "subscribe" : "訂閱即時新聞", "unsubscribe" : "取消訂閱即時新聞", "news_summary" : "新聞摘要"}
@@ -50,10 +53,13 @@ class TelegramBot:
                 '[udn] 證券' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5590/1',
                 '[udn] 國際' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5588/1',
                 '[udn] 兩岸' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5589/1',
+                '[鉅亨網] 頭條' : 'https://api.cnyes.com/media/api/v1/newslist/category/headline',
+                '[鉅亨網] 台股' : 'https://api.cnyes.com/media/api/v1/newslist/category/tw_stock',
+                '[鉅亨網] 美股' : 'https://api.cnyes.com/media/api/v1/newslist/category/wd_stock',
+                '[鉅亨網] 科技' : 'https://api.cnyes.com/media/api/v1/newslist/category/tech',
+                "News Digest AI（中文）" : "https://feed.cqd.tw/ndai",
                 '[moneydj] 發燒頭條' : 'https://www.moneydj.com/KMDJ/RssCenter.aspx?svc=NR&fno=1&arg=MB010000',
-                'WSJ Chinese' : 'https://cn.wsj.com/zh-hans/rss',
                 'Yahoo TW' : "https://tw.stock.yahoo.com/rss?category=news",
-                "Investing Economy" : 'https://www.investing.com/rss/news_14.rss'
             }
         self.news_data = { news_type : [] for news_type in self.news_src_urls.keys() }
 
@@ -174,6 +180,7 @@ class TelegramBot:
                 text = escape_markdown_v2(query.data) + "\n" + text
                 await query.edit_message_text(text=text,
                                             parse_mode='MarkdownV2',
+                                            disable_web_page_preview=True,
                                             reply_markup=query.message.reply_markup)
         else:
             await query.answer(text="處理中...，以私人回覆方式傳送摘要")
@@ -273,6 +280,7 @@ class TelegramBot:
         for news_type, url in self.news_src_urls.items():
             self.logger.info(f"NEWS SOURCE : {news_type}")
             res_list = self.NP.fetch_news_list(url) # Get news from parser only
+
             titles = [news['title'] for news in self.news_data[news_type]]
             if len(titles) != 0:
                 for ele in res_list:
@@ -318,7 +326,7 @@ class TelegramBot:
         # repeat task
         init_list = [{"last_news": None} for _ in self.report_urls]
         application.job_queue.run_repeating(callback=self.get_reports , interval=600, first=1, data=init_list, name="get_reports")
-        application.job_queue.run_repeating(callback=self.get_news    , interval=300, first=10, data={}, name="get_news")
+        application.job_queue.run_repeating(callback=self.get_news    , interval=60,  first=1, data={}, name="get_news")
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
         # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
         # set menu

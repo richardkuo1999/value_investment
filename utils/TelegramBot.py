@@ -35,15 +35,21 @@ class TelegramBot:
         self.logger = setup_logger()
         self.ASK_CODE = 1
         self.subscribers = set()
-        self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
+        # self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
+        self.report_urls = [
+            "https://morss.it/:proxy:items=%7C%7C*[class=article-content__title]/https://uanalyze.com.tw/articles",
+            "https://blog.fugle.tw/",
+            "https://feed.cqd.tw/vocus/user/ieobserve", # source: https://github.com/CQD/feeder
+            "https://feed.cqd.tw/vocus/user/miula"
+        ]
         self.bot_cmd = {"start" : "開始使用機器人", "help" : "使用說明", "esti" : "估算股票", "news" : "查看新聞",
                 "subscribe" : "訂閱即時新聞", "unsubscribe" : "取消訂閱即時新聞", "news_summary" : "新聞摘要"}
         # set source 
         self.news_src_urls = {
-                '[udn] 產業' : 'https://money.udn.com/rank/newest/1001/5591/1', 
-                '[udn] 證券' : 'https://money.udn.com/rank/newest/1001/5590/1',
-                '[udn] 國際' : 'https://money.udn.com/rank/newest/1001/5588/1',
-                '[udn] 兩岸' : 'https://money.udn.com/rank/newest/1001/5589/1',
+                '[udn] 產業' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5591/1', 
+                '[udn] 證券' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5590/1',
+                '[udn] 國際' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5588/1',
+                '[udn] 兩岸' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5589/1',
                 '[moneydj] 發燒頭條' : 'https://www.moneydj.com/KMDJ/RssCenter.aspx?svc=NR&fno=1&arg=MB010000',
                 'WSJ Chinese' : 'https://cn.wsj.com/zh-hans/rss',
                 'Yahoo TW' : "https://tw.stock.yahoo.com/rss?category=news",
@@ -248,11 +254,14 @@ class TelegramBot:
     async def get_reports(self, context: ContextTypes.DEFAULT_TYPE):
 
         group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
-        for idx, func in enumerate(self.report_func):
-            report = func()[0] # lastest report
-            news = f"{report['title']}\n{report['link']}"
+
+        for idx, url in enumerate(self.report_urls):
+            report = self.NP.fetch_report(url)[0] # get lastest report
+            news = f"{report['title']}\n{report['url']}"
+
             if news != context.job.data[idx].get("last_news"):
                 await context.bot.send_message(chat_id=group_id, text=news)
+                self.logger.debug("update news")
                 context.job.data[idx]["last_news"] = news  # ✅ 更新news
 
     async def cmd_news_summary(self, update, context):
@@ -263,7 +272,7 @@ class TelegramBot:
         # async with self.lock:
         for news_type, url in self.news_src_urls.items():
             self.logger.info(f"NEWS SOURCE : {news_type}")
-            res_list = self.NP.fetch_news_list(url, 10) # Get news from parser only
+            res_list = self.NP.fetch_news_list(url) # Get news from parser only
             titles = [news['title'] for news in self.news_data[news_type]]
             if len(titles) != 0:
                 for ele in res_list:
@@ -307,7 +316,7 @@ class TelegramBot:
         # 錯誤處理
         application.add_error_handler(self.cmd_error)
         # repeat task
-        init_list = [{"last_news": None} for _ in self.report_func]
+        init_list = [{"last_news": None} for _ in self.report_urls]
         application.job_queue.run_repeating(callback=self.get_reports , interval=600, first=1, data=init_list, name="get_reports")
         application.job_queue.run_repeating(callback=self.get_news    , interval=300, first=10, data={}, name="get_news")
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息

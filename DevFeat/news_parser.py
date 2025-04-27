@@ -98,7 +98,7 @@ class NewsParser:
         self.logger.error("不支援的網站")
         return None
 
-    def fetch_news_list(self, url, news_number=1):
+    def fetch_news_list(self, url, news_number=10):
         """
         Fetches and processes a list of news articles from a specified website.
         Args:
@@ -112,12 +112,14 @@ class NewsParser:
                   anything but prints the news titles, links, and AI-generated summaries.
         """
         news_result = []
-        soup = self.news_request(url)
-
-        if soup is None: # check return data before use
-            return []
         
-        if "udn" in url:
+        
+        # if "udn" in url:
+        if False:
+            soup = self.news_request(url)
+            if soup is None: # check return data before use
+                return []
+            
             news_items = soup.select(".story-headline-wrapper")
             for idx, item in enumerate(news_items[:news_number]):
                 # Get the news information
@@ -133,10 +135,18 @@ class NewsParser:
         else:
             news_result = self.rss_parser(url)
         
-        return news_result[:10] # Get latest 10 news
+        return news_result[:news_number] # Get latest 10 news
     
-    def get_fugle_report(self):
-        url = 'https://blog.fugle.tw/'
+    def fetch_report(self, url, news_number=10):
+        data = None
+        if 'fugle' in url:
+            data = self.get_fugle_report(url)
+        else:
+            data = self.rss_parser(url)
+
+        return data[:news_number]
+
+    def get_fugle_report(self, url):
         headers = {
             "User-Agent": "Mozilla/5.0"
         }
@@ -148,7 +158,7 @@ class NewsParser:
         for article in articles:
             title = article.select_one(".post-title").get_text(strip=True)
             link = article.select_one("a")["href"]
-            reports.append({'title' : title, "link" : link})
+            reports.append({'title' : title, "url" : link})
 
         return reports
 
@@ -168,7 +178,7 @@ class NewsParser:
         for article in articles:
             title = article.select_one(".article-content__title").get_text(strip=True)
             link = article.select_one("a")["href"]
-            reports.append({'title' : title, "link" : link})
+            reports.append({'title' : title, "url" : link})
 
         return reports
     

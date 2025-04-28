@@ -34,10 +34,12 @@ class TelegramBot:
         self.NP = NewsParser()
         self.lock = asyncio.Lock()
         self.job_queue = JobQueue()
-        self.logger = setup_logger()
-        self.ASK_CODE = 1
         self.subscribers = set()
         self.db = DB()
+        self.ASK_CODE = 1
+        self.logger = setup_logger()
+        self.TOKEN = yaml.safe_load(open('token.yaml'))["TelegramToken"][0]
+        self.group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
         # self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
         self.report_urls = [
             "https://blog.fugle.tw/",
@@ -86,7 +88,7 @@ class TelegramBot:
     # 定義 /help 命令處理器
     async def cmd_help(self, update: Update, context):
         
-        await update._bot.send_message(chat_id="-4769258504", text="help command")
+        await context.bot.send_message(chat_id=self.group_id, text="help command")
         if update.message.chat.type == "group":
             await update.message.reply_text(f"In this group, I can assist you with commands like /start and /help.")
         else:
@@ -201,7 +203,7 @@ class TelegramBot:
     async def send_news(self, news):
 
         self.logger.debug("send_news fo subscriber")
-        bot = Bot(token=yaml.safe_load(open('token.yaml'))["TelegramToken"][0])
+        bot = Bot(token=self.TOKEN)
         for chat_id in self.subscribers:
             title = news['title']
             url   = news['url']
@@ -267,7 +269,6 @@ class TelegramBot:
 
     async def get_reports(self, context: ContextTypes.DEFAULT_TYPE):
 
-        group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
 
         for idx, url in enumerate(self.report_urls):
             report = self.NP.fetch_report(url)[0]
@@ -275,7 +276,7 @@ class TelegramBot:
 
             if not exists:
                 article = f"{report['title']}\n{report['url']}"
-                await context.bot.send_message(chat_id=group_id, text=article)
+                await context.bot.send_message(chat_id=self.group_id, text=article)
                 self.logger.debug("update report")
 
 
@@ -303,11 +304,9 @@ class TelegramBot:
         self.logger.info("Fetch news sources done")
 
     def run(self):
-        # 設置你的 Token
-        TOKEN = yaml.safe_load(open('token.yaml'))["TelegramToken"][0]
 
         # 初始化 Application
-        application = Application.builder().token(TOKEN).build()
+        application = Application.builder().token(self.TOKEN).build()
 
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler("info", self.cmd_info)],

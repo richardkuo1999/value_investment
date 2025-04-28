@@ -3,11 +3,10 @@ from telegram import InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 from telegram.ext import ConversationHandler, JobQueue
 from sqlalchemy import select, exists
-import yaml
-import requests
-import time
-import asyncio
-import re
+import yaml, requests, time, asyncio, re, traceback, os
+
+import fitz  # PyMuPDF 用來讀PDF
+import docx  # python-docx 用來讀Word
 
 from server_main import Individual_search
 from Database.MoneyDJ import MoneyDJ
@@ -29,17 +28,38 @@ def escape_markdown_v2(text: str) -> str:
 def is_valid_input(s):
     return bool(re.fullmatch(r"[1-9][0-9]{3}", s))
 
+def read_pdf(path):
+    text = ""
+    doc = fitz.open(path)
+    for page in doc:
+        text += page.get_text()
+    return text
+
+def read_word(path):
+    doc = docx.Document(path)
+    text = "\n".join([para.text for para in doc.paragraphs])
+    return text
+
+def clean_markdown(text):
+    # 移除連結，只留文字
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    # 移除粗體、斜體、底線、刪除線等標記
+    text = re.sub(r'(\*|_|~|`)+', '', text)
+    return text
+
 class TelegramBot:
     def __init__(self):
+        self.TOKEN = yaml.safe_load(open('token.yaml'))["TelegramToken"][0]
+        self.group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
         self.NP = NewsParser()
         self.lock = asyncio.Lock()
         self.job_queue = JobQueue()
         self.subscribers = set()
         self.db = DB()
+        self.groq = GroqAI()
+        self.telebot = Bot(token=self.TOKEN)
         self.ASK_CODE = 1
         self.logger = setup_logger()
-        self.TOKEN = yaml.safe_load(open('token.yaml'))["TelegramToken"][0]
-        self.group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
         # self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
         self.report_urls = [
             "https://blog.fugle.tw/",
@@ -50,8 +70,12 @@ class TelegramBot:
             "https://morss.it/:proxy/https://www.macromicro.me/blog",
             "https://morss.it/:proxy/https://fintastic.trading/",
         ]
-        self.bot_cmd = {"start" : "開始使用機器人", "help" : "使用說明", "esti" : "估算股票", "news" : "查看新聞",
-                "subscribe" : "訂閱即時新聞", "unsubscribe" : "取消訂閱即時新聞", "news_summary" : "新聞摘要"}
+        self.bot_cmd = {"start" : "開始使用機器人", 
+                        "help" : "使用說明",
+                        "esti" : "估算股票", 
+                        "news" : "查看新聞", 
+                        "info" : "查詢公司資訊",
+                        "subscribe" : "訂閱即時新聞", "unsubscribe" : "取消訂閱即時新聞", "news_summary" : "新聞摘要"}      
         # set source 
         self.news_src_urls = {
                 '[udn] 產業' : 'https://morss.it/:proxy:items=%7C%7C*[class=story__headline]/https://money.udn.com/rank/newest/1001/5591/1', 
@@ -139,13 +163,12 @@ class TelegramBot:
         msg = f"你輸入的代碼是 {ticker}，幫你處理！"
         await update.message.reply_text(msg)
         DJ = MoneyDJ()
-        chatbot = GroqAI()
 
         ticker_name, wiki_result = DJ.get_wiki_result(ticker)
         condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
         prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
 
-        content = chatbot.talk(prompt, wiki_result, reasoning=True)
+        content = self.groq.talk(prompt, wiki_result, reasoning=True)
         save_path = "./files/"
         file_path = f"{save_path}/{str(ticker)}{ticker_name}_info.md"
         with open(file_path, "w", encoding="utf-8") as f:
@@ -167,14 +190,13 @@ class TelegramBot:
     # button callback
     async def button_cb(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         self.logger.debug("✅ Callback handler triggered")
-        groq = GroqAI()
         query = update.callback_query
         
         # response = requests.head(query.data, allow_redirects=True) # 取得最終網址
         
         # article = NP.fetch_news_content(response.url)
         # content = article['content']
-        # summary = groq.talk(prompt="幫我摘要內容200字以內", content=content, reasoning=True)
+        # summary = self.groq.talk(prompt="幫我摘要內容200字以內", content=content, reasoning=True)
         if query.data in self.news_data.keys():
             await query.answer()
             text = ""
@@ -194,7 +216,12 @@ class TelegramBot:
         # await query.message._bot.send_message(chat_id=user.id, text=f"{article['title']}\n🧠 新聞摘要：\n{summary}")
     # 定義錯誤處理器
     async def cmd_error(self, update: Update, context):
-        self.logger.error(f"Error: {context.error}")
+        traceback_str = traceback.format_exception(None, context.error, context.error.__traceback__)
+        # traceback_str 是個列表，裡面包含每行堆疊訊息
+        for line in traceback_str:
+            if "line" in line:  # 找到含有 "line" 的那行
+                self.logger.error(f"{line.strip()}")
+        
     # 取消對話
     async def cmd_cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("已取消操作。")
@@ -203,7 +230,6 @@ class TelegramBot:
     async def send_news(self, news):
 
         self.logger.debug("send_news fo subscriber")
-        bot = Bot(token=self.TOKEN)
         for chat_id in self.subscribers:
             title = news['title']
             url   = news['url']
@@ -211,7 +237,7 @@ class TelegramBot:
 
             if titles != "":
                 text = f"{titles}"
-                await bot.send_message(chat_id=chat_id
+                await self.telebot.send_message(chat_id=chat_id
                                         , text=text
                                         , parse_mode='MarkdownV2')
 
@@ -302,6 +328,65 @@ class TelegramBot:
                 self.db.checkNews(news)
 
         self.logger.info("Fetch news sources done")
+    
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.message.chat.type == "group":
+            return  # 忽略群組中的訊息
+        
+        import aspose.words as aw
+        if update.message.document:
+            document = update.message.document
+            file_name = document.file_name.lower()
+
+            # 把檔案下載下來
+            file_path = f"./{file_name}"
+            file = await document.get_file()   # 第一次 await，拿到檔案物件
+            await file.download_to_drive(file_path)  # 第二次 await，下載到本地
+            file_name_clear = file_name.split("_", 1)[1]
+            await self.telebot.send_message(chat_id=self.group_id, text=f"[TEST]有用戶傳了{file_name_clear}給我，幫你摘要內容")
+            # 判斷副檔名
+            text = ""
+            if file_name.endswith('.pdf'):
+                text = read_pdf(file_path)[:8000]
+            elif file_name.endswith('.doc') or file_name.endswith('.docx'):
+                text = read_word(file_path)[:8000]
+            else:
+                # await update.message.reply_text("這個檔案格式我還不支援喔！")
+                return
+            os.remove(file_path)
+
+            summary = self.groq.talk(prompt="幫我做重點摘要500字以內，重點數字優先", content=text, reasoning=True)
+            file_path = "./summary.md"
+            with open(file_path, "w", encoding="utf-8") as file:
+                file.write(summary)
+            # doc = aw.Document(file_path)
+            # doc.save("summary.pdf")
+            with open(file_path, "rb") as file:
+                await self.telebot.send_document(chat_id=self.group_id, document=file, caption="這是你的摘要 📄")
+            os.remove(file_path)
+
+        elif update.message.photo:
+            photo = update.message.photo[-1]
+            file = await photo.get_file()
+            await context.bot.send_photo(chat_id=self.group_id, photo=file.file_id) # 直接轉傳
+
+        elif update.message.text:
+            text = update.message.text
+            if "call memo" in text.lower() or "memo" in text.lower():
+                await self.telebot.send_message(chat_id=self.group_id, text=f"[TEST]有用戶傳了Call Memo給我，幫你摘要內容")
+                summary = self.groq.talk(prompt="幫我做重點摘要500字以內，重點數字優先", content=text, reasoning=True)
+                file_path = "./summary.md"
+                with open(file_path, "w", encoding="utf-8") as file:
+                    file.write(summary)
+                with open(file_path, "rb") as file:
+                    await self.telebot.send_document(chat_id=self.group_id, document=file, caption="這是你的摘要 📄")
+                os.remove(file_path)
+            else:
+                pass
+                # await update.message.reply_text("你傳了一段文字。")
+        else:
+            pass
+            # await update.message.reply_text("這種類型我還看不懂喔。")
 
     def run(self):
 
@@ -334,7 +419,7 @@ class TelegramBot:
         application.job_queue.run_repeating(callback=self.get_reports , interval=600, first=1, data={}, name="get_reports")
         application.job_queue.run_repeating(callback=self.get_news    , interval=60,  first=1, data={}, name="get_news")
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
-        # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+        application.add_handler(MessageHandler(filters.ALL, self.handle_message))
         # set menu
         # asyncio.run(self.set_main_menu(application))
         self.set_main_menu(application)

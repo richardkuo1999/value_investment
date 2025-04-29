@@ -165,19 +165,23 @@ class TelegramBot:
         DJ = MoneyDJ()
 
         ticker_name, wiki_result = DJ.get_wiki_result(ticker)
-        condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
-        prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
-
-        content = self.groq.talk(prompt, wiki_result, reasoning=True)
-        save_path = "./files/"
-        file_path = f"{save_path}/{str(ticker)}{ticker_name}_info.md"
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        with open(file_path, "rb") as f:
-            await update.message.reply_document(
-                document=InputFile(f, filename=file_path),
-                caption="這是你的報告 📄"
-            )
+        # error handle
+        if ticker_name is None or wiki_result is None:
+            await update.message.reply_text(f"Information of Ticker {ticker} is not found.")
+        else:
+            condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
+            prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
+            content = self.groq.talk(prompt, wiki_result, reasoning=True)
+            # TODO
+            save_path = "./files/"
+            file_path = f"{save_path}/{str(ticker)}{ticker_name}_info.md"
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            with open(file_path, "rb") as f:
+                await update.message.reply_document(
+                    document=InputFile(f, filename=file_path),
+                    caption="這是你的報告 📄"
+                )
         return ConversationHandler.END
     # 定義普通文字訊息處理器
     async def cmd_echo(self, update: Update, context):
@@ -216,11 +220,7 @@ class TelegramBot:
         # await query.message._bot.send_message(chat_id=user.id, text=f"{article['title']}\n🧠 新聞摘要：\n{summary}")
     # 定義錯誤處理器
     async def cmd_error(self, update: Update, context):
-        traceback_str = traceback.format_exception(None, context.error, context.error.__traceback__)
-        # traceback_str 是個列表，裡面包含每行堆疊訊息
-        for line in traceback_str:
-            if "line" in line:  # 找到含有 "line" 的那行
-                self.logger.error(f"{line.strip()}")
+        self.logger.error(context.error)
         
     # 取消對話
     async def cmd_cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -333,7 +333,7 @@ class TelegramBot:
         if update.message.chat.type == "group":
             return  # 忽略群組中的訊息
         
-        import aspose.words as aw
+        # import aspose.words as aw
         if update.message.document:
             document = update.message.document
             file_name = document.file_name.lower()

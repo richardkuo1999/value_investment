@@ -45,14 +45,18 @@ class MoneyDJ:
             company_url = self.prefix_url + company_url[2:]
             self.logger.debug(f"Company URL: {company_url}")
         else:
-            self.logger.warning(f"查無『查詢 - 財經百科』區塊: {url}")
+            self.logger.error(f"查無『查詢 - 財經百科』區塊: {url}")
 
         return company_url
 
     def get_wiki_result(self, stock_id) -> str:
 
         company_url = self.get_company_url(stock_id)
-
+        # error handle
+        if company_url is None:
+            self.logger.warning("Can't find the company url from MoneyDJ")
+            return (None, None)
+        
         # 確保找到正確的元素
         soup = fetch_webpage(company_url, headers)
         data = soup.find('div', class_='UserDefined')

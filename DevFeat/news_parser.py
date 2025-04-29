@@ -36,8 +36,8 @@ class NewsParser:
         res_list = []
         try:
             for entry in feed.entries:
-                self.logger.debug(f"標題：{entry.title}")
-                self.logger.debug(f"連結：{entry.link}")
+                # self.logger.debug(f"標題：{entry.title}")
+                # self.logger.debug(f"連結：{entry.link}")
                 # self.logger.debug(f"發布時間：{entry.published}")
                 # self.logger.debug("-----------------")
                 res_list.append({'title' : entry.title, 'url' : entry.link, "src" : "rss"})

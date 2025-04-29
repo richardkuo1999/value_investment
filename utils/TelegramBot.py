@@ -182,6 +182,7 @@ class TelegramBot:
                     document=InputFile(f, filename=file_path),
                     caption="這是你的報告 📄"
                 )
+            os.remove(file_path) # Remove info.md after send
         return ConversationHandler.END
     # 定義普通文字訊息處理器
     async def cmd_echo(self, update: Update, context):
@@ -342,7 +343,8 @@ class TelegramBot:
             file_path = f"./{file_name}"
             file = await document.get_file()   # 第一次 await，拿到檔案物件
             await file.download_to_drive(file_path)  # 第二次 await，下載到本地
-            file_name_clear = file_name.split("_", 1)[1]
+
+            file_name_clear = file_name.split("_", 1)[1] if '_' in file_name else file_name
             await self.telebot.send_message(chat_id=self.group_id, text=f"[TEST]有用戶傳了{file_name_clear}給我，幫你摘要內容")
             # 判斷副檔名
             text = ""

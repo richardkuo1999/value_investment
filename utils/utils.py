@@ -87,7 +87,13 @@ def get_last_data(result_dir: Path) -> dict:
                 for row in reader:
                     stock_id = row.get("代號")
                     if stock_id and stock_id not in datas:  # Keep the most recent entry
-                        datas[stock_id] = row
+                        converted_row = {}
+                        for key, value in row.items():
+                            try:
+                                converted_row[key] = float(value)
+                            except (ValueError, TypeError):
+                                converted_row[key] = value
+                        datas[stock_id] = converted_row
             files_processed += 1
             logger.debug(f"Processed CSV file: {filepath}")
         except (IOError, csv.Error) as e:

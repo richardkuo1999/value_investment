@@ -94,9 +94,9 @@ class UnderEST:
 
     @staticmethod
     def get_expected_profit(data: dict) -> float:
-        eps = float(data.get("EPS(EST)") or data.get("EPS(TTM)", 0))
-        price = float(data.get("價格", 0))
-        target = get_target(float(data.get("PE(TL-1SD)", 0.0)), eps)
+        eps = data.get("EPS(EST)") or data.get("EPS(TTM)", 0)
+        price = data.get("價格", 0)
+        target = get_target(data.get("PE(TL-1SD)", 0.0), eps)
         return get_profit(target, price)
     
 def main_run(run_lists, DAILY_RUN_LISTS):

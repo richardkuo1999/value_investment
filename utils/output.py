@@ -287,7 +287,7 @@ PB TL-3SD : {pb_sd_rates[6]:>10.2f}           目標價位: {pb_sd_target_prices
 
 # PEG Valuation
         peg = stock_data.get("PEG", 0.0)
-        peg = None if "N/A" in peg else float(peg)
+        peg = None if peg == "N/A" else float(peg)
         if peg or eps != float(stock_data.get("EPS(TTM)", 0.0)):
             if eps != float(stock_data.get("EPS(TTM)", 0.0)):
                 eps_growth = (eps / float(stock_data.get("EPS(TTM)", 0.0)) - 1) * 100

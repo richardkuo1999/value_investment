@@ -3,17 +3,17 @@ from telegram import InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 from telegram.ext import ConversationHandler, JobQueue
 from sqlalchemy import select, exists
+import asyncio
 import yaml, requests, time, asyncio, re, traceback, os
-
-import fitz  # PyMuPDF 用來讀PDF
-import docx  # python-docx 用來讀Word
+import fitz, docx
+import logging
 
 from server_main import Individual_search
 from Database.MoneyDJ import MoneyDJ
 from Database.DB import DB
 from utils.AI import GroqAI
 from utils.Logger import setup_logger
-from DevFeat.news_parser import NewsParser
+from DevFeat.news_parser import AsyncNewsParser
 
 def shorten_url_tinyurl(long_url):
     api_url = "http://tinyurl.com/api-create.php"
@@ -51,7 +51,7 @@ class TelegramBot:
     def __init__(self):
         self.TOKEN = yaml.safe_load(open('token.yaml'))["TelegramToken"][0]
         self.group_id = yaml.safe_load(open('token.yaml'))["ChatID"][0]
-        self.NP = NewsParser()
+        self.NP = AsyncNewsParser()
         self.lock = asyncio.Lock()
         self.job_queue = JobQueue()
         self.subscribers = set()
@@ -59,7 +59,7 @@ class TelegramBot:
         self.groq = GroqAI()
         self.telebot = Bot(token=self.TOKEN)
         self.ASK_CODE = 1
-        self.logger = setup_logger()
+        self.logger = logging.getLogger(self.__class__.__name__)
         # self.report_func = {self.NP.get_uanalyze_report, self.NP.get_fugle_report, self.NP.get_vocus_ieobserve_articles}
         self.report_urls = [
             "https://blog.fugle.tw/",
@@ -91,6 +91,10 @@ class TelegramBot:
                 'Yahoo TW' : "https://tw.stock.yahoo.com/rss?category=news",
             }
         self.news_data = { news_type : [] for news_type in self.news_src_urls.keys() }
+        self.logger.info("Bot init done")
+
+    async def init(self):
+        await self.NP.init_session() 
 
     async def set_main_menu(self, application):
         commands = []
@@ -166,6 +170,7 @@ class TelegramBot:
 
         ticker_name, wiki_result = DJ.get_wiki_result(ticker)
         # error handle
+        self.logger.info("get wiki_result")
         if ticker_name is None or wiki_result is None:
             await update.message.reply_text(f"Information of Ticker {ticker} is not found.")
         else:
@@ -296,23 +301,33 @@ class TelegramBot:
 
     async def get_reports(self, context: ContextTypes.DEFAULT_TYPE):
 
+        self.logger.info("start")
+        # 限制並行數量（例如每次最多同時執行 5 個任務）
+        semaphore = asyncio.Semaphore(5)
+        async def fetch_and_send_report(url):
+            # 在 semaphore 內執行
+            async with semaphore:
+                # 獲取報告
+                reports = await self.NP.fetch_report(url)  # 假設 fetch_report 是異步的
+                report = reports[0]
+                exists = self.db.checkReport(report)
 
-        for idx, url in enumerate(self.report_urls):
-            report = self.NP.fetch_report(url)[0]
-            exists = self.db.checkReport(report)
+                if not exists:
+                    article = f"{report['title']}\n{report['url']}"
+                    await context.bot.send_message(chat_id=self.group_id, text=article)
+                    self.logger.debug("update report")
 
-            if not exists:
-                article = f"{report['title']}\n{report['url']}"
-                await context.bot.send_message(chat_id=self.group_id, text=article)
-                self.logger.debug("update report")
-
+        # 使用 gather 並行處理所有報告
+        tasks = [fetch_and_send_report(url) for url in self.report_urls]
+        # 使用 asyncio.gather 並行執行所有任務
+        await asyncio.gather(*tasks)
 
     async def get_news(self, context: ContextTypes.DEFAULT_TYPE):
         # async with self.lock:
         for news_type, url in self.news_src_urls.items():
             self.logger.info(f"NEWS SOURCE : {news_type}")
-            news_list = self.NP.fetch_news_list(url) # Get news from parser only
-
+            news_list = await self.NP.fetch_news_list(url) # Get news from parser only
+            # TODO, ugly
             titles = [news['title'] for news in self.news_data[news_type]]
             if len(titles) != 0:
                 for ele in news_list:
@@ -390,10 +405,14 @@ class TelegramBot:
             pass
             # await update.message.reply_text("這種類型我還看不懂喔。")
 
-    def run(self):
+    async def run(self):
 
         # 初始化 Application
         application = Application.builder().token(self.TOKEN).build()
+        
+        # make sure run at first
+        await self.get_news(None)
+        await self.get_reports(None)
 
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler("info", self.cmd_info)],
@@ -419,16 +438,22 @@ class TelegramBot:
         application.add_error_handler(self.cmd_error)
         # repeat task
         application.job_queue.run_repeating(callback=self.get_reports , interval=600, first=1, data={}, name="get_reports")
-        application.job_queue.run_repeating(callback=self.get_news    , interval=60,  first=1, data={}, name="get_news")
+        # application.job_queue.run_repeating(callback=self.get_news, interval=60, first=0, data={}, name="get_news")
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
         application.add_handler(MessageHandler(filters.ALL, self.handle_message))
         # set menu
-        # asyncio.run(self.set_main_menu(application))
-        self.set_main_menu(application)
+        await self.set_main_menu(application)
         # 開始輪詢
-        application.run_polling()
+        self.logger.info("Bot start polling")
+        await application.run_polling()
 
-if __name__ == '__main__':
+async def main():
+    setup_logger()
     MyBot = TelegramBot()
-    MyBot.run()
+    # 啟動 bot 的 polling（或是 webhook）
+    await MyBot.init()
+    await MyBot.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())
 

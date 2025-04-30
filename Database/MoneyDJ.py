@@ -1,13 +1,13 @@
 from utils.utils import fetch_webpage
 from Database.Goodinfo import Goodinfo, headers
 from utils.Logger import setup_logger
-import re
+import re, logging
 class MoneyDJ:
     def __init__(self) -> None:
         self.query_url = f"https://www.moneydj.com/kmdj/search/list.aspx?_Query_="
         self.wiki_url = "&_QueryType_=WK"
         self.prefix_url = "https://www.moneydj.com/kmdj/"
-        self.logger = setup_logger()
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("MoneyDJ initialized")
 
     def get_company_url(self, stock_id) -> str | None:

@@ -5,9 +5,10 @@ import re
 from tqdm import tqdm
 from utils.AI import GroqAI
 from utils.Logger import setup_logger
+import logging
 
 client = GroqAI()
-logger = setup_logger()
+logger = logging()
 
 def download_pdf(link, output_path="downloaded.pdf"):
     # print(link)

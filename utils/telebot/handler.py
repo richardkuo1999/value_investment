@@ -1,10 +1,12 @@
 from telegram import InputFile, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, ConversationHandler
 import logging, os
+import traceback
 
 from utils.telebot.utils import *
 from utils.telebot.config import CONFIG
 from Database.MoneyDJ import MoneyDJ
+
 
 # initial logger
 logger = logging.getLogger(__name__)
@@ -19,14 +21,32 @@ async def cmd_start(update: Update, context):
 # 定義 /help 命令處理器
 async def cmd_help(update: Update, context):
     
-    await context.bot.send_message(chat_id=self.group_id, text="help command")
+    await context.bot.send_message(chat_id=CONFIG['GroupID'], text="help command")
     if update.message.chat.type == "group":
         await update.message.reply_text(f"In this group, I can assist you with commands like /start and /help.")
     else:
         await update.message.reply_text('To use this bot, just type a message, or use /start and /help.')
 # 定義錯誤處理器
 async def cmd_error(update: Update, context):
-    logger.error(context.error)
+    tb = "".join(traceback.format_exception(None, context.error, context.error.__traceback__))
+    # 嘗試抓使用者資料和輸入的指令
+    user = None
+    command_text = None
+
+    if isinstance(update, Update):
+        user = update.effective_user
+        if update.message:
+            command_text = update.message.text
+        elif update.callback_query:
+            command_text = update.callback_query.data
+            
+    logger.error(
+        # f"❌ Error from user={user.id if user else 'Unknown'} "
+        # f"name={user.full_name if user else 'N/A'}\n"
+        f"\n👉 Command/Text: {command_text}\n"
+        f"🪵 Traceback:\n{tb}"
+    )
+    
 # 取消對話
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("已取消操作。")

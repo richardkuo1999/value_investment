@@ -2,6 +2,7 @@ import csv
 import yaml
 import requests
 import pandas as pd
+import logging
 from pathlib import Path
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -15,6 +16,7 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
 }
 
+logger = logging.getLogger(__name__)
 
 def fetch_webpage(url: str, headers=headers) -> BeautifulSoup:
     """Fetch and parse webpage content"""
@@ -146,3 +148,13 @@ class UnderEST:
             else StockData["EPS(TTM)"]
         )
         return getProfit(getTarget(StockData["SDESTPER"][4], eps), StockData["價格"])
+
+def log_retry_attempt(retry_state):
+    logger.warring(f"正在進行第 {retry_state.attempt_number} 次重試")
+
+def is_file_exists(path):
+    filepath = Path(path)
+    if not filepath.exists():  # 檢查文件是否存在
+        print("File not found. Please check the file path.")
+        return False
+    return True

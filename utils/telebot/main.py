@@ -56,13 +56,6 @@ class TelegramBot:
             commands,
             scope=BotCommandScopeAllGroupChats()
         )
-    async def cmd_start(self, update: Update, context):
-        # 檢查訊息來源是群組還是私人訊息
-        if update.message.chat.type == "group":
-            await update.message.reply_text(f"Hello, {update.message.chat.title}! I'm your bot.")
-        else:
-            await update.message.reply_text('Hello! I am your bot! How can I assist you today?')
-
     async def run(self):
 
         # 初始化 Application
@@ -78,7 +71,7 @@ class TelegramBot:
         )
         
         # 註冊處理命令
-        application.add_handler(CommandHandler("start", self.cmd_start))
+        application.add_handler(CommandHandler("start", cmd_start))
         application.add_handler(CommandHandler("help", cmd_help))
         application.add_handler(CommandHandler("esti", cmd_esti))
         application.add_handler(CommandHandler("news", cmd_news))

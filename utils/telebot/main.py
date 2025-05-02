@@ -10,7 +10,7 @@ import yaml, asyncio, re
 from utils.telebot.config import CONFIG
 from utils.telebot.handler import *
 from utils.telebot.utils import NewsParser
-from utils.telebot.jobs import get_news, get_reports, cmd_news_summary
+from utils.telebot.jobs import get_news, get_reports, get_podcasts, cmd_news_summary
 from utils.Logger import setup_logger
 from server_main import Individual_search
 def clean_markdown(text):
@@ -84,8 +84,9 @@ class TelegramBot:
         # 錯誤處理
         application.add_error_handler(cmd_error)
         # repeat task
-        application.job_queue.run_repeating(callback=get_reports , interval=600, first=10, data={}, name="get_reports", job_kwargs={"misfire_grace_time": 5})
-        application.job_queue.run_repeating(callback=get_news, interval=60, first=10, data={}, name="get_news", job_kwargs={"misfire_grace_time": 5})
+        # application.job_queue.run_repeating(callback=get_reports , interval=600, first=10, data={}, name="get_reports", job_kwargs={"misfire_grace_time": 5})
+        # application.job_queue.run_repeating(callback=get_news, interval=60, first=10, data={}, name="get_news", job_kwargs={"misfire_grace_time": 5})
+        application.job_queue.run_repeating(callback=get_podcasts, interval=60*60, first=10, data={}, name="get_podcasts", job_kwargs={"misfire_grace_time": 5})
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
         application.add_handler(MessageHandler(filters.ALL, handle_message))
         await self.set_main_menu(application)

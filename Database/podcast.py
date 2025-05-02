@@ -3,6 +3,7 @@ import aiohttp
 import aiofiles
 import feedparser
 import json
+import logging
 
 import os
 
@@ -19,6 +20,8 @@ Get id flow(2025/04/30):
 source_id = ['1500839292','1546879892', '1488295306']
 LOOK_UP_URL = "https://itunes.apple.com/lookup?id="
 
+logger = logging.getLogger(__name__)
+
 # === Step 1: 從 iTunes API 抓出 feedUrl ===
 async def get_feed_url(session, api_url):
     try:
@@ -26,10 +29,10 @@ async def get_feed_url(session, api_url):
             text = await resp.text()
             data = json.loads(text)  # 手動解析 JSON
             feed_url = data["results"][0]["feedUrl"]
-            print(f"✅ 取得 feedUrl：{feed_url}")
+            logger.debug(f"✅ 取得 feedUrl：{feed_url}")
             return feed_url
     except Exception as e:
-        print(f"❌ 解析失敗：{api_url} - {e}")
+        logger.error(f"❌ 解析失敗：{api_url} - {e}")
         return None
 
 # === Step 2: 從 feedUrl 抓取 MP3 並下載 ===
@@ -41,9 +44,9 @@ async def download_mp3(session, url, filename):
             filepath = os.path.join(DOWNLOAD_DIR, filename)
             async with aiofiles.open(filepath, 'wb') as f:
                 await f.write(await response.read())
-            print(f"🎧 下載完成：{filename}")
+            logger.debug(f"🎧 下載完成：{filename}")
     except Exception as e:
-        print(f"❌ 下載失敗：{filename} - {e}")
+        logger.error(f"❌ 下載失敗：{filename} - {e}")
 
 async def download_from_feed(session, feed_url):
     try:
@@ -60,11 +63,11 @@ async def download_from_feed(session, feed_url):
             break # download 1 file only
         await asyncio.gather(*tasks)
     except Exception as e:
-        print(f"❌ RSS 錯誤：{feed_url} - {e}")
+        logger.error(f"❌ RSS 錯誤：{feed_url} - {e}")
 
 # === Step 3: 主程式 ===
-async def main():
-
+async def main_process():
+    logger.info("開始下載 Podcast")
     async with aiohttp.ClientSession() as session:
         # 抓 feedUrls
         feed_tasks = [get_feed_url(session, f"{LOOK_UP_URL}{id}") for id in source_id]
@@ -74,7 +77,8 @@ async def main():
         # 抓 MP3
         all_tasks = [download_from_feed(session, feed_url) for feed_url in feed_urls]
         await asyncio.gather(*all_tasks)
+    logger.info("Podcast 下載完成")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main_process())
 

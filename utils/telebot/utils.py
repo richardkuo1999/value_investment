@@ -4,7 +4,7 @@ import docx
 import logging
 from DevFeat.news_parser import AsyncNewsParser
 from Database.DB import DB
-from utils.AI import GroqAI
+from utils.AI.GroqAI import GroqAI
 from utils.telebot.config import NEWS_SOURCE_URLS
 
 logger = logging.getLogger(__name__)

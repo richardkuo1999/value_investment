@@ -2,11 +2,15 @@ from telegram.ext import ContextTypes
 import logging
 import time
 import asyncio
+import os
+from pathlib import Path
 
 from utils.telebot.config import *
 from utils.telebot.utils import *
 from utils.telebot.handler import send_news
-from utils.AI import GroqAI
+from utils.AI.GroqAI import GroqAI
+from utils.AI.GeminiAI import geminiAI, GeminiReqeustType
+from Database.podcast import main_process
 
 
 # initial logger
@@ -39,21 +43,29 @@ async def get_reports(context: ContextTypes.DEFAULT_TYPE):
         # 在 semaphore 內執行
         async with semaphore:
             # 獲取報告
-            reports = await NewsParser.fetch_report(url)  # 假設 fetch_report 是異步的
-            report = reports[0]
-            exists = db.checkReport(report)
+            reports = await NewsParser.fetch_report(url)
+            for report in reports:
+                exists = db.checkReport(report)
 
-            if not exists:
-                article = f"{report['title']}\n{report['url']}"
-                await context.bot.send_message(chat_id=group_id, text=article)
-                logger.debug("update report")
+                if not exists:
+                    article = f"{report['title']}\n{report['url']}"
+                    await context.bot.send_message(chat_id=group_id, text=article)
+                    logger.debug("update report")
 
     # 使用 gather 並行處理所有報告
     tasks = [fetch_and_send_report(url) for url in REPORT_URLS]
     # 使用 asyncio.gather 並行執行所有任務
     await asyncio.gather(*tasks)
-
-
+    
+async def get_podcasts(context: ContextTypes.DEFAULT_TYPE):
+    AI = geminiAI()
+    await main_process()
+    for item in os.listdir('./podcasts'):
+        path = Path('./podcasts', item)
+        print(path)
+        ret_data = await AI.call(path=path, text=None, RQtype=GeminiReqeustType.AUDIO)
+        print(ret_data)
+        os.remove(path)
 # TODO, following functions may needs to be refactored
 # =============================================================================
 

@@ -16,8 +16,8 @@ Get id flow(2025/04/30):
 4. The XXXXXXXXXXX is the podcast id
 5. using LOOK_UP_URL(folloing url ) + id to get feedurl( check detail by function **get_feed_url** )
 """
-# source: Gooaye, 財女, 皓角
-source_id = ['1500839292','1546879892', '1488295306']
+# source: Gooaye, 財女, 皓角, 投資癮, 股市隱者, 財報狗
+source_id = ['1500839292','1546879892', '1488295306', '1518952450', '1602637578', '1513810531']
 LOOK_UP_URL = "https://itunes.apple.com/lookup?id="
 
 logger = logging.getLogger(__name__)

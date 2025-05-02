@@ -29,6 +29,16 @@ class DB:
             self.session.commit()
         
         return exists_result
+    
+    # add checkPodcast function
+    def checkPodcast(self, podcast: dict):
+        srh = select(exists().where(Podcast.host == podcast['host'] and Podcast.title == podcast['title']))
+        exists_result = self.session.execute(srh).scalar()
+        if not exists_result:
+            self.session.add(Podcast(host=podcast['host'], title=podcast['title']))
+            self.session.commit()
+        
+        return exists_result
 
 ########################DB table##########################
 class News(Base):
@@ -44,4 +54,12 @@ class Report(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String)
     link = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+    
+class Podcast(Base):
+    __tablename__ = 'podcast'  # 資料表名稱
+
+    id = Column(Integer, primary_key=True)
+    host = Column(String, unique=True)
+    title = Column(String)
     created_at = Column(DateTime, default=datetime.now)

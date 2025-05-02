@@ -8,7 +8,7 @@ import logging
 sys.path.append(os.path.dirname(__file__))
 
 from utils.output import result_output, telegram_print
-from Database.finmind import Finminder
+from Database.Finmind import Finminder
 from calculator.calculator import calculator
 from calculator.Index import notify_macro_indicators
 from calculator.stock_select import fetch_etf_constituents, fetch_institutional_top50

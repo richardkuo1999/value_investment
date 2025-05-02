@@ -4,7 +4,7 @@ import yaml
 from pathlib import Path
 import argparse
 
-from Database.finmind import Finminder
+from Database.Finmind import Finminder
 
 sys.path.append(os.path.dirname(__file__))
 

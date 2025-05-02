@@ -73,7 +73,7 @@ def notify_macro_indicators(finmind_db):
     telegram_print(option_support_and_pressure(finmind_db))
 
 if __name__ == "__main__":
-    from Database.finmind import Finminder
+    from Database.Finmind import Finminder
     from utils.utils import load_token
 
     token = load_token()

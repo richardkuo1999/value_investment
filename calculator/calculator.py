@@ -126,7 +126,7 @@ def calculator(database, stock_list, parameter, catch_url={}):
     return stock_datas
 
 if __name__ == "__main__":
-    from Database.finmind import Finminder
+    from Database.Finmind import Finminder
     from utils.utils import load_token
 
     token = load_token()

@@ -84,8 +84,8 @@ class TelegramBot:
         # 錯誤處理
         application.add_error_handler(cmd_error)
         # repeat task
-        application.job_queue.run_repeating(callback=get_reports , interval=600, first=10, data={}, name="get_reports")
-        application.job_queue.run_repeating(callback=get_news, interval=60, first=10, data={}, name="get_news")
+        application.job_queue.run_repeating(callback=get_reports , interval=600, first=10, data={}, name="get_reports", job_kwargs={"misfire_grace_time": 5})
+        application.job_queue.run_repeating(callback=get_news, interval=60, first=10, data={}, name="get_news", job_kwargs={"misfire_grace_time": 5})
         # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
         application.add_handler(MessageHandler(filters.ALL, handle_message))
         await self.set_main_menu(application)
@@ -93,9 +93,8 @@ class TelegramBot:
         self.logger.info("Bot start polling")
         await application.run_polling()
 
-# 在 main() 或你懷疑的地方加這行：
 async def main():
-    setup_logger()
+    setup_logger(logging.INFO)
     MyBot = TelegramBot()
     await MyBot.init() # initialize NewsParser session
     await MyBot.run()

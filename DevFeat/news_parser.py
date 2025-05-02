@@ -11,7 +11,7 @@ GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
 
 class AsyncNewsParser:
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.groq = Groq(api_key=GROQ_API_KEY)
         self.model = "llama3-70b-8192"
         self.logger.info(f"model = {self.model}")

@@ -17,15 +17,9 @@ async def get_news(context: ContextTypes.DEFAULT_TYPE):
     for news_type, url in NEWS_SOURCE_URLS.items():
         logger.info(f"NEWS SOURCE : {news_type}")
         news_list = await NewsParser.fetch_news_list(url) # Get news from parser only
-        # TODO, ugly
-        titles = [news['title'] for news in NEWS_DATA[news_type]]
-        if len(titles) != 0:
-            for ele in news_list:
-                if ele['title'] not in titles and not SUBSCRIBERS:
-                    logger.info("SEND NEWS")
-                    await send_news(ele, context)
-        else:
-            logger.debug("No news")
+        for news in news_list: # for cmd_subscribe
+            logger.debug("SEND NEWS")
+            await send_news(news, context)
 
         NEWS_DATA[news_type] = news_list # update news
         # update DB
@@ -39,6 +33,8 @@ async def get_reports(context: ContextTypes.DEFAULT_TYPE):
     logger.info("start")
     # 限制並行數量（例如每次最多同時執行 5 個任務）
     semaphore = asyncio.Semaphore(5)
+    group_id = CONFIG['GroupID'][0]
+    
     async def fetch_and_send_report(url):
         # 在 semaphore 內執行
         async with semaphore:
@@ -49,7 +45,7 @@ async def get_reports(context: ContextTypes.DEFAULT_TYPE):
 
             if not exists:
                 article = f"{report['title']}\n{report['url']}"
-                await context.bot.send_message(chat_id=CONFIG['GroupID'], text=article)
+                await context.bot.send_message(chat_id=group_id, text=article)
                 logger.debug("update report")
 
     # 使用 gather 並行處理所有報告

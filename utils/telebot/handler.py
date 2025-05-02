@@ -20,8 +20,8 @@ async def cmd_start(update: Update, context):
         await update.message.reply_text('Hello! I am your bot! How can I assist you today?')
 # 定義 /help 命令處理器
 async def cmd_help(update: Update, context):
-    
-    await context.bot.send_message(chat_id=CONFIG['GroupID'], text="help command")
+    group_id = CONFIG['GroupID'][0]
+    await context.bot.send_message(chat_id=group_id, text="help command")
     if update.message.chat.type == "group":
         await update.message.reply_text(f"In this group, I can assist you with commands like /start and /help.")
     else:

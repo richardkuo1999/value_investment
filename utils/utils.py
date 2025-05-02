@@ -2,10 +2,12 @@ import csv
 import yaml
 import logging
 import requests
+import aiohttp
 from pathlib import Path
 from bs4 import BeautifulSoup
 
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
+
 # from google.oauth2 import service_account
 # from googleapiclient.discovery import build
 # from googleapiclient.http import MediaFileUpload
@@ -18,20 +20,31 @@ DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
 }
 
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(3),
-    retry=retry_if_exception_type((requests.RequestException))
+    retry=retry_if_exception_type((aiohttp.ClientError, Exception)),
 )
-def fetch_webpage(url, headers=DEFAULT_HEADERS, timeout=20) -> BeautifulSoup:
+async def fetch_webpage(session, url: str, headers: dict = DEFAULT_HEADERS, timeout: int = 10) -> BeautifulSoup | None:
     try:
-        response = requests.get(url, headers=headers, timeout=timeout)
-        response.raise_for_status()
-        response.encoding = "utf-8"
-        return BeautifulSoup(response.text, "html5lib")
-    except requests.RequestException as e:
-        logger.error(f"Failed to fetch webpage {url}: {e}")
-        return None
+        async with session.get(
+            url,
+            headers=headers,
+            timeout=timeout,
+            max_line_size=1024**2,
+            max_field_size=1024**2,
+        ) as response:
+            response.raise_for_status()  # 檢查 HTTP 狀態碼
+            text = await response.text(encoding="utf-8")  # 強制設置 utf-8 編碼
+            return BeautifulSoup(text, "html5lib")
+    except aiohttp.ClientError as e:
+        logger.error(f"無法獲取網頁 {url}：{e}")
+        raise  # 讓 tenacity 處理重試
+    except Exception as e:
+        logger.error(f"獲取網頁 {url} 時發生意外錯誤：{e}")
+        raise
+
 
 @retry(
     stop=stop_after_attempt(3),
@@ -66,6 +79,7 @@ def dict2list(data):
         else:
             result.append(value)
     return result
+
 
 def is_ordinary_stock(stock_id):
     return stock_id[0] in "12345678"

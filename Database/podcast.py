@@ -23,14 +23,15 @@ LOOK_UP_URL = "https://itunes.apple.com/lookup?id="
 logger = logging.getLogger(__name__)
 
 # === Step 1: 從 iTunes API 抓出 feedUrl ===
-async def get_feed_url(session, api_url):
+async def get_feed_url(session, api_url) -> tuple | None:
     try:
         async with session.get(api_url) as resp:
             text = await resp.text()
             data = json.loads(text)  # 手動解析 JSON
             feed_url = data["results"][0]["feedUrl"]
+            podcast_name = data["results"][0]["collectionName"]
             logger.debug(f"✅ 取得 feedUrl：{feed_url}")
-            return feed_url
+            return (podcast_name, feed_url)
     except Exception as e:
         logger.error(f"❌ 解析失敗：{api_url} - {e}")
         return None
@@ -48,8 +49,9 @@ async def download_mp3(session, url, filename):
     except Exception as e:
         logger.error(f"❌ 下載失敗：{filename} - {e}")
 
-async def download_from_feed(session, feed_url):
+async def download_from_feed(session, feed):
     try:
+        podcast_name, feed_url = feed
         feed = feedparser.parse(feed_url)
         tasks = []
         for entry in feed.entries:
@@ -58,7 +60,7 @@ async def download_from_feed(session, feed_url):
             if enclosure:
                 mp3_url = enclosure[0].get("href")
                 if mp3_url:
-                    filename = f"{title}.mp3"
+                    filename = f"{podcast_name}_{title}.mp3"
                     tasks.append(download_mp3(session, mp3_url, filename))
             break # download 1 file only
         await asyncio.gather(*tasks)
@@ -72,10 +74,10 @@ async def main_process():
         # 抓 feedUrls
         feed_tasks = [get_feed_url(session, f"{LOOK_UP_URL}{id}") for id in source_id]
         feed_urls = await asyncio.gather(*feed_tasks)
-        feed_urls = [url for url in feed_urls if url]
+        feed_urls = [data for data in feed_urls if data]
 
         # 抓 MP3
-        all_tasks = [download_from_feed(session, feed_url) for feed_url in feed_urls]
+        all_tasks = [download_from_feed(session, feed) for feed in feed_urls]
         await asyncio.gather(*all_tasks)
     logger.info("Podcast 下載完成")
 

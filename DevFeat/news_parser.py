@@ -48,7 +48,7 @@ class AsyncNewsParser:
                 text = await resp.text()
             feed = feedparser.parse(text)
             results = [{'title': entry.title, 'url': entry.link, 'src': 'rss'} for entry in feed.entries]
-            self.logger.info("get rss items done")
+            self.logger.debug("get rss items done")
         except Exception as e:
             self.logger.error(e)
         return results

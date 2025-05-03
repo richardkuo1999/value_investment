@@ -126,6 +126,22 @@ async def cmd_handle_info(update: Update, context):
             )
         os.remove(file_path) # Remove info.md after send
     return ConversationHandler.END
+
+async def cmd_googleNews(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("請輸入想查詢 Google 新聞的內容：")
+    return ASK_CODE
+
+async def cmd_handle_googleNews(update: Update, context):
+    keyword = update.message.text.strip()
+    url = f"https://news.google.com/rss/search?q={keyword}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+    data = await NewsParser.rss_parser(url)
+    data.sort(key=lambda x: x["pubTime"] or "", reverse=True)
+
+    text = "".join(f"📰[{escape_markdown_v2(article['title'])}]({article['url']})\n" for article in data[:10])
+    await update.message.reply_text(text=text,
+                                    parse_mode='MarkdownV2')
+    return ConversationHandler.END
+
 # 定義普通文字訊息處理器
 async def cmd_echo(update: Update, context):
     print(f"Received message: {update.message.text}")

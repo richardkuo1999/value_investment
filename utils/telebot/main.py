@@ -24,14 +24,16 @@ class TelegramBot:
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.l = ""
-        self.bot_cmd = {"start" : "開始使用機器人", 
-                        "help" : "使用說明",
+        self.bot_cmd = {"google_news" : "Google新聞",
                         "esti" : "估算股票", 
                         "news" : "查看新聞", 
                         "info" : "查詢公司資訊",
                         "subscribe" : "訂閱即時新聞",
                         "unsubscribe" : "取消訂閱即時新聞",
-                        "news_summary" : "新聞摘要"}
+                        "news_summary" : "新聞摘要",
+                        "start" : "開始使用機器人",
+                        "help" : "使用說明",
+                        "test" : "測試"}
         self.bot_token = CONFIG['TelegramToken'][0]
         self.logger.info("Bot init done")
 
@@ -62,10 +64,18 @@ class TelegramBot:
         
         application = Application.builder().token(yaml.safe_load(open('token.yaml'))["TelegramToken"][0]).build()
 
-        conv_handler = ConversationHandler(
+        conv_info_handler = ConversationHandler(
             entry_points=[CommandHandler("info", cmd_info)],
             states={
                 ASK_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_handle_info)]
+            },
+            fallbacks=[CommandHandler("cancel", cmd_cancel)],
+        )
+        
+        conv_google_news_handler = ConversationHandler(
+            entry_points=[CommandHandler("google_news", cmd_googleNews)],
+            states={
+                ASK_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_handle_googleNews)]
             },
             fallbacks=[CommandHandler("cancel", cmd_cancel)],
         )
@@ -79,7 +89,8 @@ class TelegramBot:
         application.add_handler(CommandHandler("subscribe", cmd_subscribe))
         application.add_handler(CommandHandler("unsubscribe", cmd_unsubscribe))
         application.add_handler(CommandHandler("news_summary", cmd_news_summary))
-        application.add_handler(conv_handler)
+        application.add_handler(conv_info_handler)
+        application.add_handler(conv_google_news_handler)
         application.add_handler(CallbackQueryHandler(button_cb))
         # 錯誤處理
         application.add_error_handler(cmd_error)

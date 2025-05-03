@@ -5,6 +5,7 @@ from groq import Groq
 from datetime import datetime
 import yaml, html, re, logging
 import feedparser
+from dateutil import parser as dateparser
 
 # Groq API Key
 GROQ_API_KEY = yaml.safe_load(open('token.yaml'))["GROQ_API_KEY"][0]
@@ -47,7 +48,11 @@ class AsyncNewsParser:
             async with self.session.get(url) as resp:
                 text = await resp.text()
             feed = feedparser.parse(text)
-            results = [{'title': entry.title, 'url': entry.link, 'src': 'rss'} for entry in feed.entries]
+            results = [{'title': entry.title, 
+                        'url': entry.link, 
+                        'pubTime' : (dateparser.parse(entry.published) if hasattr(entry, 'published') else None),
+                        'src': 'rss'} for entry in feed.entries]
+            
             self.logger.debug("get rss items done")
         except Exception as e:
             self.logger.error(e)

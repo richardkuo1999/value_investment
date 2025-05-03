@@ -1,5 +1,6 @@
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, BotCommandScopeAllGroupChats
 from telegram import InputFile
+from telegram import BotCommandScopeDefault
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 from telegram.ext import ConversationHandler, JobQueue
 from sqlalchemy import select, exists
@@ -47,17 +48,9 @@ class TelegramBot:
 
         await application.bot.set_my_commands(
             commands,
-            scope=BotCommandScopeAllGroupChats()
-        )
-    async def set_main_menu(self, application):
-        commands = []
-        for k, v in self.bot_cmd.items():
-            commands.append(BotCommand(k, v))
-
-        await application.bot.set_my_commands(
-            commands,
-            scope=BotCommandScopeAllGroupChats()
-        )
+            scope=BotCommandScopeDefault()
+            )
+        
     async def run(self):
 
         # 初始化 Application

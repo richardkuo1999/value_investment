@@ -32,7 +32,7 @@ class DB:
     
     # add checkPodcast function
     def checkPodcast(self, podcast: dict):
-        srh = select(exists().where(Podcast.host == podcast['host'] and Podcast.title == podcast['title']))
+        srh = select(exists().where((Podcast.host == podcast['host']) & (Podcast.title == podcast['title'])))
         exists_result = self.session.execute(srh).scalar()
         if not exists_result:
             self.session.add(Podcast(host=podcast['host'], title=podcast['title']))
@@ -60,6 +60,6 @@ class Podcast(Base):
     __tablename__ = 'podcast'  # 資料表名稱
 
     id = Column(Integer, primary_key=True)
-    host = Column(String, unique=True)
+    host = Column(String)
     title = Column(String)
     created_at = Column(DateTime, default=datetime.now)

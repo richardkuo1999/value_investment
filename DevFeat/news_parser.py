@@ -49,7 +49,8 @@ class AsyncNewsParser:
                 text = await resp.text()
             feed = feedparser.parse(text)
             results = [{'title': entry.title, 
-                        'url': entry.link, 
+                        'url': entry.link,
+                        'description': entry.description if hasattr(entry, 'description') else None,
                         'pubTime' : (dateparser.parse(entry.published) if hasattr(entry, 'published') else None),
                         'src': 'rss'} for entry in feed.entries]
             

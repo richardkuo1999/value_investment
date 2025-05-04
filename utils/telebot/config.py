@@ -22,4 +22,6 @@ REPORT_URLS = [
             "https://morss.it/:proxy:items=%7C%7C*[class=article-content__title]/https://uanalyze.com.tw/articles",
             "https://morss.it/:proxy/https://www.macromicro.me/blog",
             "https://morss.it/:proxy/https://fintastic.trading/",
+            "https://rsshub.app/telegram/channel/finguider_official",
+            "https://morss.it/:proxy:items=%7C%7C*[class=articleListItem__link]/https://www.forecastock.tw/category/%E5%80%8B%E8%82%A1%E5%A0%B1%E5%91%8A"
             ]

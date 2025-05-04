@@ -51,17 +51,23 @@ async def fetch_webpage(session, url: str, headers: dict = DEFAULT_HEADERS, time
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(3),
-    retry=retry_if_exception_type((requests.RequestException))
+    retry=retry_if_exception_type(aiohttp.ClientError),
 )
-def fetch_web2json(url: str, headers=DEFAULT_HEADERS, timeout=20) -> BeautifulSoup:
+async def fetch_web2json(session, url: str, headers=DEFAULT_HEADERS, timeout=20) -> dict:
     try:
-        response = requests.get(url, headers=headers, timeout=timeout)
-        response.raise_for_status()
-        response.encoding = "utf-8"
-        return response.json()
-    except (requests.RequestException, ValueError) as e:
+        async with session.get(url, headers=headers, timeout=timeout) as response:
+            response.raise_for_status()
+            return await response.json(content_type=None)
+    except aiohttp.ClientError as e:
         logger.error(f"Failed to fetch JSON from {url}: {e}")
+        raise
+    except ValueError as e:
+        logger.error(f"Failed to parse JSON from {url}: {e}")
         return None
+    except Exception as e:
+        logger.error(f"Unexpected error fetching {url}: {e}")
+        return None
+
 
 def load_token(path="token.yaml"):
     with open(path, "r") as f:

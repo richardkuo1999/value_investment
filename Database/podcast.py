@@ -4,8 +4,9 @@ import aiofiles
 import feedparser
 import json
 import logging
-
 import os
+
+from utils.telebot.utils import db
 
 DOWNLOAD_DIR = "podcasts"  # 下載資料夾
 """
@@ -59,7 +60,8 @@ async def download_from_feed(session, feed):
             enclosure = entry.get("enclosures") or []
             if enclosure:
                 mp3_url = enclosure[0].get("href")
-                if mp3_url:
+                podcast_dict = {"host": podcast_name, "title": title}
+                if mp3_url and not db.checkPodcast(podcast_dict):
                     filename = f"{podcast_name}_{title}.mp3"
                     tasks.append(download_mp3(session, mp3_url, filename))
             break # download 1 file only

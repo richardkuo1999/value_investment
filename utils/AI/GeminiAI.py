@@ -126,11 +126,19 @@ class geminiAI():
     @async_timer
     async def __query_audio(self, path: Path, prompt: str | None) -> str | None:
 
-        prompt = "用中文條列與投資市場相關的資訊跟重點，以及對於投資市場的看法或操作建議，並照以下格式輸出給我:\
-                  1. 總體經濟與市場動向 \n 2.產業與個股剖析 \n 3. 個人的市場操作與建議"  if prompt is None else prompt
-        google_search_tool = Tool(
-        google_search = GoogleSearch()
-        )
+        # prompt = "用中文條列與投資市場相關的資訊跟重點，以及對於投資市場的看法或操作建議，並照以下格式輸出給我:\
+        #           1. 總體經濟與市場動向 \n 2.產業與個股剖析 \n 3. 個人的市場操作與建議"  if prompt is None else prompt
+        prompt = "請提取以下細節：\
+            1. 提出Podcast中討論的主要股市投資策略，每個策略的細節、優缺點以及適用的情況。\
+            2. 解釋主持人如何看待當前股市的整體走勢，並分析未來可能的市場趨勢。\
+            3. 詳細描述主持人對於風險管理的建議，並列出實際的操作方法，例如如何分散風險或管理市場波動。\
+            4. 如果Podcast中提到過任何具體的股票或行業，請提供對這些股票或行業的深入分析，包括投資的原因、風險以及預期回報。\
+            5. 討論Podcast中有關行為金融學或投資者心理學的部分，說明主持人如何解釋情緒和決策如何影響投資行為。\
+            6. 如果主持人分享過自己的成功或失敗經歷，請提供這些經歷並說明其中的學習點。\
+            ，並照以下格式條列輸出給我: 1. 總體經濟與市場動向 \n 2.產業與個股剖析 \n 3. 個人的市場操作與建議"
+        # google_search_tool = Tool(
+        # google_search = GoogleSearch()
+        # )
         with open(path, 'rb') as f:
             audio_bytes = f.read()
 
@@ -143,10 +151,10 @@ class geminiAI():
                 mime_type='audio/mp3',
                 )
             ],
-            config=GenerateContentConfig(
-                tools=[google_search_tool],
-                response_modalities=["TEXT"],
-            )
+            # config=GenerateContentConfig(
+            #     tools=[google_search_tool],
+            #     response_modalities=["TEXT"],
+            # )
         )
         return response.text
 

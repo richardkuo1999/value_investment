@@ -5,7 +5,7 @@ def setup_logger(LogLevel: int = logging.INFO):
     logger = logging.getLogger()  # 根 logger
     logger.setLevel(logging.DEBUG)
 
-    log_format = '%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s'
+    log_format = '%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s'
     # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.ERROR)

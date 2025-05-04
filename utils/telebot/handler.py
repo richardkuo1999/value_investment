@@ -13,11 +13,7 @@ logger = logging.getLogger(__name__)
 # ===============Basic Command Handler===================
 # 定義 /start 命令處理器
 async def cmd_start(update: Update, context):
-    # 檢查訊息來源是群組還是私人訊息
-    if update.message.chat.type == "group":
-        await update.message.reply_text(f"Hello, {update.message.chat.title}! I'm your bot.")
-    else:
-        await update.message.reply_text('Hello! I am your bot! How can I assist you today?')
+    await update.message.reply_text('Hello! I am your bot! How can I assist you today?')
 # 定義 /help 命令處理器
 async def cmd_help(update: Update, context):
     group_id = CONFIG['GroupID'][0]
@@ -136,8 +132,7 @@ async def cmd_handle_googleNews(update: Update, context):
     url = f"https://news.google.com/rss/search?q={keyword}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
     data = await NewsParser.rss_parser(url)
     data.sort(key=lambda x: x["pubTime"] or "", reverse=True)
-
-    text = "".join(f"📰[{escape_markdown_v2(article['title'])}]({article['url']})\n" for article in data[:10])
+    text = group_news_title(data[:10])
     await update.message.reply_text(text=text,
                                     parse_mode='MarkdownV2')
     return ConversationHandler.END
@@ -158,7 +153,8 @@ async def button_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data in NEWS_DATA.keys(): # Send news back to reply button
         logger.debug(f"Query data: {query.data}")
         await query.answer()
-        text = group_news_title(query.data)
+        data = NEWS_DATA[query.data]
+        text = group_news_title(data)
 
         if text is not None:
             logger.debug(f"Send news to user")

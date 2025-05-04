@@ -22,15 +22,11 @@ def escape_markdown_v2(text: str) -> str:
     escape_chars = r'\_*[]()~`>#+-=|{}.!'
     return ''.join(['\\' + c if c in escape_chars else c for c in text])
 
-def group_news_title(query: str) -> str | None:
-    data = NEWS_DATA[query]
+def group_news_title(data: str) -> str | None:
     if len(data) == 0:
-        logger.warning(f"No news data for {query}")
+        logger.warning(f"No news data found")
         return None
-    
     text = "".join(f"📰[{escape_markdown_v2(article['title'])}]({article['url']})\n" for article in data)
-    # for article in data:
-    #     text += f"📰[{escape_markdown_v2(article['title'])}]({article['url']})\n"
     return text
 
 def read_pdf(path):

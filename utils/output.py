@@ -92,6 +92,7 @@ def csv_output(result_path, stock_datas):
 
 def txt_output(result_path, stock_datas, eps_lists=None):
     result_path = result_path.with_suffix(".txt")
+    texts = ""
 
     for idx, (stock_id, stock_data) in enumerate(stock_datas.items()):
         if not stock_data:
@@ -286,7 +287,7 @@ PB TL-3SD : {pb_sd_rates[6]:>10.2f}           目標價位: {pb_sd_target_prices
             logger.warning(f"{stock_id}: Missing PB Standard Deviation data: {e}")
 
 # PEG Valuation
-        peg = stock_data.get("PEG", 0.0)
+        peg = stock_data.get("PEG", None)
         peg = None if peg == "N/A" else float(peg)
         if peg or eps != float(stock_data.get("EPS(TTM)", 0.0)):
             if eps != float(stock_data.get("EPS(TTM)", 0.0)):
@@ -308,7 +309,11 @@ PEG: {peg:>10.2f}           EPS成長率: {eps_growth :>10.2f}
             logger.warning(f"{stock_id}: Missing PEG Valuation")
 
         write2txt(text, result_path)
-    return text
+        texts = texts +f"""
+
+{text}
+"""
+    return texts
 
 
 def result_output(result_path, stock_datas, eps_lists=None):
@@ -335,14 +340,13 @@ def telegram_print(msg, token_path="token.yaml"):
         chat_id = tokens.get("TelegramchatID")
         if not token or not chat_id:
             logger.error("Missing TelegramToken or TelegramchatID in token file")
-            return False
-
+            return False  
         url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        print(msg)
-        logger.info(f"Sent Telegram message: ...")
+
+        logger.info(msg)
         return True
     except (requests.RequestException, KeyError) as e:
-        logger.error(f"Failed to send Telegram message: {e}")
+        logger.error(f"Telegram 發送失敗: {e}")
         return False

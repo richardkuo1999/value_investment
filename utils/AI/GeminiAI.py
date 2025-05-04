@@ -73,11 +73,11 @@ class geminiAI():
         
 
     @async_timer
-    async def __query_text(self, path: Path) -> str | None:
+    async def __query_text(self, path: Path, prompt: str | None) -> str | None:
         with open(path,'r') as f:
             text = f.read() #沒指定size
 
-        prompt = f"用中文摘要這份報告: {text}"
+        prompt = f"用中文摘要這份報告: {text}" if prompt is None else f"{prompt}: {text}"
 
         response = await self.client.aio.models.generate_content(
             model=self.model_name,
@@ -86,10 +86,10 @@ class geminiAI():
         return response.text
     
     @async_timer
-    async def __query_img(self, path: Path) -> str | None:
+    async def __query_img(self, path: Path, prompt: str | None) -> str | None:
         
         # prompt = "用中文摘要這張照片"
-        prompt = "給這張照片一個標題，並且用中文描述這張照片的內容，格式如下:\n標題：\n內容："
+        prompt = "給這張照片一個標題，並且用中文描述這張照片的內容，格式如下:\n標題：\n內容："  if prompt is None else prompt
 
         response = await self.client.aio.models.generate_content(
             model=self.model_name,
@@ -104,10 +104,10 @@ class geminiAI():
         return response.text
 
     @async_timer
-    async def __query_file(self, path: Path) -> str | None:
+    async def __query_file(self, path: Path, prompt: str | None) -> str | None:
         # Retrieve and encode the PDF byte
         
-        prompt = "用中文條列重點這份文件，幫我做質化分析跟量化分析，並且幫我做SWOT分析，還有幫我做PEST分析，最後幫我做5 Forces分析。"
+        prompt = "用中文條列重點這份文件，幫我做質化分析跟量化分析，並且幫我做SWOT分析，還有幫我做PEST分析，最後幫我做5 Forces分析。" if prompt is None else prompt
         # prompt = "幫我做重點摘要500字以內，重點數字優先"
         # prompt = "你是一位專業分析師，請根據以下文件提取出：\n文章主題\n核心觀點（2~5 點）\n支持觀點的關鍵資料或引用\n結論或作者建議（若有），並且幫我做SWOT分析，還有幫我做PEST分析，最後幫我做5 Forces分析。"
         prompt = input("query: ")
@@ -124,9 +124,10 @@ class geminiAI():
         return response.text
  
     @async_timer
-    async def __query_audio(self, path: Path) -> str | None:
+    async def __query_audio(self, path: Path, prompt: str | None) -> str | None:
 
-        prompt = "用中文條列與投資市場相關的資訊或重點，以及對於投資市場的看法或操作建議"
+        prompt = "用中文條列與投資市場相關的資訊跟重點，以及對於投資市場的看法或操作建議，並照以下格式輸出給我:\
+                  1. 總體經濟與市場動向 \n 2.產業與個股剖析 \n 3. 個人的市場操作與建議"  if prompt is None else prompt
         google_search_tool = Tool(
         google_search = GoogleSearch()
         )
@@ -150,9 +151,9 @@ class geminiAI():
         return response.text
 
     @async_timer
-    async def __query_video(self, path: Path) -> str | None:
+    async def __query_video(self, path: Path, prompt: str | None) -> str | None:
 
-        prompt = "用中文條列重點這份影片"
+        prompt = "用中文條列重點這份影片" if prompt is None else prompt
         
         with open(path, 'rb') as f:
             video_bytes = f.read()
@@ -182,25 +183,26 @@ class geminiAI():
         path: Path,
         text: str | None,
         RQtype: GeminiReqeustType,
+        prompt: str | None = None
     ):
         if not is_file_exists(path):
             raise FileNotFoundError(f"File {path} not found.")
 
         match RQtype:
             case GeminiReqeustType.TEXT:
-                response = await self.__query_text(path=path)
+                response = await self.__query_text(path=path, prompt=prompt)
                 return response
             case GeminiReqeustType.IMAGE:
-                response = await self.__query_img(path=path)
+                response = await self.__query_img(path=path, prompt=prompt)
                 return response
             case GeminiReqeustType.FILE:
-                response = await self.__query_file(path=path)
+                response = await self.__query_file(path=path, prompt=prompt)
                 return response
             case GeminiReqeustType.AUDIO:
-                response = await self.__query_audio(path=path)
+                response = await self.__query_audio(path=path, prompt=prompt)
                 return response
             case GeminiReqeustType.VIDEO:
-                response = await self.__query_video(path=path)
+                response = await self.__query_video(path=path, prompt=prompt)
                 return response
             case _:
                 raise NotImplementedError(f"Request type {RQtype} not implemented.")

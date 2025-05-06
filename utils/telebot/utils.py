@@ -5,10 +5,12 @@ import logging
 from DevFeat.news_parser import AsyncNewsParser
 from Database.DB import DB
 from utils.AI.GroqAI import GroqAI
+from utils.AI.GeminiAI import geminiAI
 from utils.telebot.config import NEWS_SOURCE_URLS
 
 logger = logging.getLogger(__name__)
 groq = GroqAI()
+gemini = geminiAI()
 NewsParser = AsyncNewsParser()
 db = DB()
 NEWS_DATA = { news_type : [] for news_type in NEWS_SOURCE_URLS.keys() }

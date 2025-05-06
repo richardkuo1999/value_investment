@@ -1,7 +1,8 @@
 from utils.utils import fetch_webpage
 from Database.Goodinfo import Goodinfo, headers
 from utils.Logger import setup_logger
-import re, logging
+import re, logging, aiohttp
+from bs4 import BeautifulSoup
 class MoneyDJ:
     def __init__(self) -> None:
         self.query_url = f"https://www.moneydj.com/kmdj/search/list.aspx?_Query_="
@@ -49,23 +50,27 @@ class MoneyDJ:
 
         return company_url
 
-    def get_wiki_result(self, stock_id) -> str:
+    async def fetch_webpage_async(self, url, headers=None):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as response:
+                html = await response.text()
+                return BeautifulSoup(html, 'html.parser')
 
+    async def get_wiki_result(self, stock_id) -> tuple[str, str] | tuple[None, None]:
         company_url = self.get_company_url(stock_id)
-        # error handle
         if company_url is None:
             self.logger.warning("Can't find the company url from MoneyDJ")
             return (None, None)
-        
-        # 確保找到正確的元素
-        soup = fetch_webpage(company_url, headers)
-        data = soup.find('div', class_='UserDefined')
+
+        soup = await self.fetch_webpage_async(company_url, headers)
+        # data = soup.find('div', class_='UserDefined')
+        data = soup.find('article')
         self.logger.debug(f"data find is {data is not None}")
-        # Get clean text from the data
-        raw_text = data.get_text(separator='\n', strip=True)
+
+        raw_text = data.get_text(separator='\n', strip=True) if data else ''
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         clean_text = '\n'.join(lines)
 
+        # ⚠️ Goodinfo 必須改寫為 async 才有意義，否則仍為阻塞
         goodinfo = Goodinfo(stock_id)
-        
         return (goodinfo.StockInfo['股票名稱'], clean_text)

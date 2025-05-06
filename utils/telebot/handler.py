@@ -2,8 +2,10 @@ from telegram import InputFile, Update, InlineKeyboardButton, InlineKeyboardMark
 from telegram.ext import ContextTypes, CommandHandler, ConversationHandler
 import logging, os
 import traceback
+import io
 
 from utils.telebot.utils import *
+from utils.AI.GeminiAI import GeminiReqeustType
 from utils.telebot.config import CONFIG
 from Database.MoneyDJ import MoneyDJ
 
@@ -84,7 +86,7 @@ async def cmd_esti(update: Update, context):
         pass
 # user key info_start
 async def cmd_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("請輸入股票代碼：")
+    await update.message.reply_text("🔎 請輸入股票代碼：")
     return ASK_CODE 
 
 async def cmd_handle_info(update: Update, context):
@@ -97,30 +99,32 @@ async def cmd_handle_info(update: Update, context):
         await update.message.reply_text(msg)
         return ConversationHandler.END
     
-    msg = f"你輸入的代碼是 {ticker}，幫你處理！"
+    msg = f"✅ 你輸入的代碼是 {ticker}，幫你處理！📊"
     await update.message.reply_text(msg)
     DJ = MoneyDJ()
 
-    ticker_name, wiki_result = DJ.get_wiki_result(ticker)
+    data = await DJ.get_wiki_result(ticker)
+    ticker_name, wiki_result = data
     # error handle
     logger.info("get wiki_result")
     if ticker_name is None or wiki_result is None:
         await update.message.reply_text(f"Information of Ticker {ticker} is not found.")
     else:
-        condition = "重點摘要，營收占比或業務占比，有詳細數字的也要列出來"
+        condition = "近1~2年的公司產品、營收占比、業務來源、財務狀況(營收、eps、毛利率等)\
+                    、近期pros & cons 加上 google 搜尋結果，要幫我標示來源"
         prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
-        content = groq.talk(prompt, wiki_result, reasoning=True)
-        # TODO
-        save_path = "./files/"
-        file_path = f"{save_path}/{str(ticker)}{ticker_name}_info.md"
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        with open(file_path, "rb") as f:
-            await update.message.reply_document(
-                document=InputFile(f, filename=file_path),
-                caption="這是你的報告 📄"
-            )
-        os.remove(file_path) # Remove info.md after send
+        # content = groq.talk(prompt, wiki_result, reasoning=True)
+        content = await gemini.call(text=wiki_result, prompt=prompt, RQtype=GeminiReqeustType.TEXT)
+
+        file_name = f"{str(ticker)}{ticker_name}_info.md"
+        buffer = io.BytesIO()
+        buffer.write(content.encode('utf-8'))
+        buffer.seek(0)  # 回到開頭供 Telegram 使用
+
+        await update.message.reply_document(
+            document=InputFile(buffer, filename=file_name),
+            caption="這是你的報告(含google搜尋) 📄"
+        )
     return ConversationHandler.END
 
 async def cmd_googleNews(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

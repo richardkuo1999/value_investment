@@ -73,15 +73,22 @@ class geminiAI():
         
 
     @async_timer
-    async def __query_text(self, path: Path, prompt: str | None) -> str | None:
-        with open(path,'r') as f:
-            text = f.read() #沒指定size
-
-        prompt = f"用中文摘要這份報告: {text}" if prompt is None else f"{prompt}: {text}"
-
+    async def __query_text(self, path: Path | None, text: str | None, prompt: str | None) -> str | None:
+        if path is not None:
+            with open(path,'r') as f:
+                text = f.read() #沒指定size
+                
+        prompt = f"{prompt}: {text}" if prompt is not None else f"用中文摘要這份報告: {text}"
+        google_search_tool = Tool(
+        google_search = GoogleSearch()
+        )
         response = await self.client.aio.models.generate_content(
             model=self.model_name,
             contents=[prompt],
+            config=GenerateContentConfig(
+                tools=[google_search_tool],
+                response_modalities=["TEXT"],
+            )
         )
         return response.text
     
@@ -188,18 +195,22 @@ class geminiAI():
     # Universal interface for call gemini model
     async def call(
         self,
-        path: Path,
-        text: str | None,
         RQtype: GeminiReqeustType,
+        path: Path | None = None,
+        text: str | None = None,
         prompt: str | None = None
-    ):
-        if not is_file_exists(path):
+    ) -> str | None:
+        if text is None and path is None:
+            logger.error("INPUT MISSING")
+            return None
+        if path is not None and is_file_exists(path):
             raise FileNotFoundError(f"File {path} not found.")
 
         match RQtype:
             case GeminiReqeustType.TEXT:
-                response = await self.__query_text(path=path, prompt=prompt)
+                response = await self.__query_text(path=path, text=text, prompt=prompt)
                 return response
+            # TODO, following function may needs to be modify
             case GeminiReqeustType.IMAGE:
                 response = await self.__query_img(path=path, prompt=prompt)
                 return response

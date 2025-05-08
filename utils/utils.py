@@ -155,6 +155,6 @@ def log_retry_attempt(retry_state):
 def is_file_exists(path):
     filepath = Path(path)
     if not filepath.exists():  # 檢查文件是否存在
-        print("File not found. Please check the file path.")
+        logger.error("File not found. Please check the file path.")
         return False
     return True

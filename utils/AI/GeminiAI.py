@@ -203,7 +203,7 @@ class geminiAI():
         if text is None and path is None:
             logger.error("INPUT MISSING")
             return None
-        if path is not None and is_file_exists(path):
+        if path is not None and not is_file_exists(path):
             raise FileNotFoundError(f"File {path} not found.")
 
         match RQtype:

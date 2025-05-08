@@ -110,21 +110,25 @@ async def cmd_handle_info(update: Update, context):
     if ticker_name is None or wiki_result is None:
         await update.message.reply_text(f"Information of Ticker {ticker} is not found.")
     else:
-        condition = "近1~2年的公司產品、營收占比、業務來源、財務狀況(營收、eps、毛利率等)\
+        condition = "近1年的公司產品、營收占比、業務來源、財務狀況(營收、eps、毛利率等)\
                     、近期pros & cons 加上 google 搜尋結果，要幫我標示來源"
         prompt = "\n" + condition  + "，並且使用繁體中文回答\n"
         # content = groq.talk(prompt, wiki_result, reasoning=True)
         content = await gemini.call(text=wiki_result, prompt=prompt, RQtype=GeminiReqeustType.TEXT)
+        if content is None:
+            logger.error(content)
+            await update.message.reply_text("抱歉我壞了")
+        else:
+            # logger.debug(content)
+            file_name = f"{str(ticker)}{ticker_name}_info.md"
+            buffer = io.BytesIO()
+            buffer.write(content.encode('utf-8'))
+            buffer.seek(0)  # 回到開頭供 Telegram 使用
 
-        file_name = f"{str(ticker)}{ticker_name}_info.md"
-        buffer = io.BytesIO()
-        buffer.write(content.encode('utf-8'))
-        buffer.seek(0)  # 回到開頭供 Telegram 使用
-
-        await update.message.reply_document(
-            document=InputFile(buffer, filename=file_name),
-            caption="這是你的報告(含google搜尋) 📄"
-        )
+            await update.message.reply_document(
+                document=InputFile(buffer, filename=file_name),
+                caption="這是你的報告(含google搜尋) 📄"
+            )
     return ConversationHandler.END
 
 async def cmd_googleNews(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

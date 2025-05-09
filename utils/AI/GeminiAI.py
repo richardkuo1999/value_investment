@@ -111,22 +111,31 @@ class geminiAI():
         return response.text
 
     @async_timer
-    async def __query_file(self, path: Path, prompt: str | None) -> str | None:
+    async def __query_file(self, path: Path, prompt: str | None, contents: list | None) -> str | None:
         # Retrieve and encode the PDF byte
         
-        prompt = "用中文條列重點這份文件，幫我做質化分析跟量化分析，並且幫我做SWOT分析，還有幫我做PEST分析，最後幫我做5 Forces分析。" if prompt is None else prompt
+        prompt_local = "用中文條列重點這份文件，幫我做質化分析跟量化分析，並且幫我做SWOT分析，還有幫我做PEST分析，最後幫我做5 Forces分析。" 
+        prompt_local = prompt if prompt is not None else prompt_local
         # prompt = "幫我做重點摘要500字以內，重點數字優先"
         # prompt = "你是一位專業分析師，請根據以下文件提取出：\n文章主題\n核心觀點（2~5 點）\n支持觀點的關鍵資料或引用\n結論或作者建議（若有），並且幫我做SWOT分析，還有幫我做PEST分析，最後幫我做5 Forces分析。"
-        prompt = input("query: ")
+        content_group = []
+        if contents:
+            for c in contents:
+                typ, content = c
+                doc = types.Part.from_bytes(data=content, mime_type=typ)
+                content_group.append(doc)
+        else:
+            doc = types.Part.from_bytes(
+                data=path.read_bytes(),
+                mime_type="application/pdf",
+            )
+            content_group = [doc]
+            
+        content_group.append(prompt_local)
         response = await self.client.aio.models.generate_content(
             model=self.model_name,
-            contents=[
-                types.Part.from_bytes(
-                    data=path.read_bytes(),
-                    mime_type="application/pdf",
-                ),
-                prompt,
-            ],
+            # contents=[doc, prompt_local,],
+            contents = content_group,
         )
         return response.text
  
@@ -197,10 +206,10 @@ class geminiAI():
         self,
         RQtype: GeminiReqeustType,
         path: Path | None = None,
-        text: str | None = None,
-        prompt: str | None = None
+        contents: str | list | None = None,
+        prompt: str | None = None,
     ) -> str | None:
-        if text is None and path is None:
+        if path is None and contents is None:
             logger.error("INPUT MISSING")
             return None
         if path is not None and not is_file_exists(path):
@@ -208,14 +217,16 @@ class geminiAI():
 
         match RQtype:
             case GeminiReqeustType.TEXT:
-                response = await self.__query_text(path=path, text=text, prompt=prompt)
+                if type(contents) is not str:
+                    logger.error("File type is not match !!!!!")
+                response = await self.__query_text(path=path, prompt=prompt, text=contents)
                 return response
             # TODO, following function may needs to be modify
             case GeminiReqeustType.IMAGE:
                 response = await self.__query_img(path=path, prompt=prompt)
                 return response
             case GeminiReqeustType.FILE:
-                response = await self.__query_file(path=path, prompt=prompt)
+                response = await self.__query_file(path=path, prompt=prompt, contents=contents)
                 return response
             case GeminiReqeustType.AUDIO:
                 response = await self.__query_audio(path=path, prompt=prompt)

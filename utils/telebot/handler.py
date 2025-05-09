@@ -1,9 +1,9 @@
 from telegram import InputFile, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, ConversationHandler
-import logging, os
+import logging
 import traceback
 import io
-
+import asyncio
 from utils.telebot.utils import *
 from utils.AI.GeminiAI import GeminiReqeustType
 from utils.telebot.config import CONFIG
@@ -199,43 +199,50 @@ async def send_news(news, context: ContextTypes.DEFAULT_TYPE):
                                     , text=titles
                                     , parse_mode='MarkdownV2')
 
+research_group = []
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat.type == "group":
-        return  # 忽略群組中的訊息
-    group_id = CONFIG['GroupID'][0]
-    # import aspose.words as aw
+async def  cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("📚 請提供欲研究之資料，📝 文字與 📎 檔案皆可（可多份）：")
+    return 1
+
+async def cmd_handle_research(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global research_group
+    
     if update.message.document:
         document = update.message.document
         file_name = document.file_name.lower()
-        # 把檔案下載下來
-        file_path = f"./{file_name}"
-        file = await document.get_file()   # 第一次 await，拿到檔案物件
-        await file.download_to_drive(file_path)  # 第二次 await，下載到本地
-        logger.debug(f"File downloaded: {file_path}")
-        file_name_clear = file_name.split("_", 1)[1] if '_' in file_name else file_name
-        await context.bot.send_message(chat_id=group_id, text=f"[TEST]有用戶傳了{file_name_clear}給我，幫你摘要內容")
+        logger.debug(f"File name: {file_name}")
         # 判斷副檔名
-        text = ""
-        if file_name.endswith('.pdf'):
-            text = read_pdf(file_path)[:8000]
-        elif file_name.endswith('.doc') or file_name.endswith('.docx'):
-            text = read_word(file_path)[:8000]
-        else:
-            # await update.message.reply_text("這個檔案格式我還不支援喔！")
+        if not file_name.endswith((".docx", ".doc", ".pdf")):
+            await update.message.reply_text("這個檔案格式我還不支援喔！")
             return
-        os.remove(file_path)
-
-        summary = groq.talk(prompt="幫我做重點摘要500字以內，重點數字優先", content=text, reasoning=True)
-        file_path = "./summary.md"
-        with open(file_path, "w", encoding="utf-8") as file:
-            file.write(summary)
-        # doc = aw.Document(file_path)
-        # doc.save("summary.pdf")
-        with open(file_path, "rb") as file:
-            await context.bot.send_document(chat_id=group_id, document=file, caption="這是你的摘要 📄")
-        os.remove(file_path)
-
+        
+        file = await document.get_file()   # 第一次 await，拿到檔案物件
+        # 將檔案下載到記憶體中的 BytesIO
+        bio = io.BytesIO()
+        await file.download_to_memory(out=bio)
+        bio.seek(0)
+        typ = ""
+        if file_name.endswith('.doc') or file_name.endswith('.docx'):
+            from docx import Document
+            doc = Document(bio)
+            content = "\n".join([para.text for para in doc.paragraphs])
+            bio = io.BytesIO(content.encode('utf-8'))
+            bio.seek(0)
+            typ = "text/plain"
+        else:
+            typ = "application/pdf"
+            
+        content = bio.getvalue()
+        research_group.append((typ, content))
+    elif update.message.text:
+        text = update.message.text
+        if len(text) > 200:
+            bio = io.BytesIO(text.encode('utf-8'))
+            bio.seek(0)
+            research_group.append(("text/plain", bio.getvalue()))
+        
+    """
     elif update.message.photo:
         photo = update.message.photo[-1]
         file = await photo.get_file()
@@ -244,8 +251,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.message.text:
         text = update.message.text
         if "call memo" in text.lower() or "memo" in text.lower():
-            await context.bot.send_message(chat_id=group_id, text=f"[TEST]有用戶傳了Call Memo給我，幫你摘要內容")
-            summary = groq.talk(prompt="幫我做重點摘要500字以內，重點數字優先", content=text, reasoning=True)
+            await context.bot.send_message(chat_id=group_id, text=f"有用戶傳了Call Memo給我，幫你摘要內容")
+            prompt = "幫我做重點摘要500字以內，重點數字優先"
+            summary = await gemini.call(RQtype=GeminiReqeustType.TEXT, text=text, prompt=prompt)
             file_path = "./summary.md"
             with open(file_path, "w", encoding="utf-8") as file:
                 file.write(summary)
@@ -258,3 +266,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         pass
         # await update.message.reply_text("這種類型我還看不懂喔。")
+    """
+    
+async def cmd_research_done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    
+    global research_group
+    sent_msg = await update.message.reply_text("開始為你生成研究報告資訊📊📄(預設prompt)")
+    await asyncio.sleep(5) # 等待幾秒鐘確保傳輸完成
+    # default prompt
+    prompt = "根據提供的報告整理出 8 個常見投資問題與詳細回答，並用繁體中文回答"
+    summary = await gemini.call(RQtype=GeminiReqeustType.FILE, prompt=prompt, contents=research_group)
+    research_group = [] # clear list
+    bio = io.BytesIO(summary.encode("utf-8"))
+    bio.seek(0)
+    bio.name = "Research.md"
+    await update.message.reply_document(document=InputFile(bio), filename="Research.md", reply_to_message_id=sent_msg.message_id)
+    return ConversationHandler.END

@@ -25,16 +25,16 @@ class TelegramBot:
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.l = ""
-        self.bot_cmd = {"google_news" : "Google新聞",
-                        "esti" : "估算股票", 
+        self.bot_cmd = {"research" : "產業/個股研究",
                         "news" : "查看新聞", 
                         "info" : "查詢公司資訊",
+                        "esti" : "估算股票", 
+                        "google_news" : "Google新聞",
                         "subscribe" : "訂閱即時新聞",
                         "unsubscribe" : "取消訂閱即時新聞",
                         "news_summary" : "新聞摘要",
                         "start" : "開始使用機器人",
-                        "help" : "使用說明",
-                        "test" : "測試"}
+                        "help" : "使用說明"}
         self.bot_token = CONFIG['TelegramToken'][0]
         self.logger.info("Bot init done")
 
@@ -73,6 +73,17 @@ class TelegramBot:
             fallbacks=[CommandHandler("cancel", cmd_cancel)],
         )
         
+        conv_research_handler =  ConversationHandler(
+            entry_points=[CommandHandler("research", cmd_research)],
+            states={
+                1: [MessageHandler(
+                        filters.Document.ALL & (
+                        filters.Document.FileExtension("pdf") | filters.Document.FileExtension("docx")), cmd_handle_research),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_handle_research)],
+            },
+            fallbacks=[CommandHandler("rq", cmd_research_done)],
+        )
+        
         # 註冊處理命令
         application.add_handler(CommandHandler("start", cmd_start))
         application.add_handler(CommandHandler("help", cmd_help))
@@ -84,6 +95,7 @@ class TelegramBot:
         application.add_handler(CommandHandler("news_summary", cmd_news_summary))
         application.add_handler(conv_info_handler)
         application.add_handler(conv_google_news_handler)
+        application.add_handler(conv_research_handler)
         application.add_handler(CallbackQueryHandler(button_cb))
         # 錯誤處理
         application.add_error_handler(cmd_error)
@@ -91,8 +103,6 @@ class TelegramBot:
         application.job_queue.run_repeating(callback=get_reports , interval=600, first=10, data={}, name="get_reports", job_kwargs={"misfire_grace_time": 5})
         application.job_queue.run_repeating(callback=get_news, interval=60, first=10, data={}, name="get_news", job_kwargs={"misfire_grace_time": 5})
         application.job_queue.run_repeating(callback=get_podcasts, interval=60*60, first=10, data={}, name="get_podcasts", job_kwargs={"misfire_grace_time": 5})
-        # 註冊文字訊息處理器，這會回應用戶發送的所有文字訊息
-        application.add_handler(MessageHandler(filters.ALL, handle_message))
         await self.set_main_menu(application)
         # 開始輪詢
         self.logger.info("Bot start polling")

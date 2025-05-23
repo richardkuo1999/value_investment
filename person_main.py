@@ -1,11 +1,11 @@
 import os
 import sys
 import logging
+import aiohttp
+import asyncio
 import argparse
 from pathlib import Path
-import argparse
 
-from Database.Finmind import Finminder
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -22,73 +22,91 @@ def parse_arguments():
         type=int,
         default=4,
         choices=[1, 2, 3, 4],
-        help="Forward EPS value (1: high, 2: low, 3: average, 4: medium)"
+        help="Forward EPS value (1: high, 2: low, 3: average, 4: medium)",
     )
     parser.add_argument(
-        "-year",
-        type=float,
-        default=4.5,
-        help="Data calculation length (years)"
+        "-year", type=float, default=4.5, help="Data calculation length (years)"
     )
     args = parser.parse_args()
     return [args.level, args.year]
 
-def get_stock_lists(user_input: str) -> dict[str, dict[str]]:
-    # 1. 查詢ETF成分股
-    if user_input == "1":
-        sub_user_input = input("1.0050, 006201, 0051\n2. 自行輸入\n輸入: ")
-        StockLists = {}
-        etf_list = None
-        if sub_user_input == "1":
-            etf_list = ["0050", "006201", "0051"]
-        elif sub_user_input == "2":
-            etf_list = input("請用空格隔開: ").split()
-        for etf in etf_list:
-            StockLists[etf] = fetch_etf_constituents(etf)
-        return StockLists
 
-    # 2. 查詢個股
-    elif user_input == "2":
-        return {"User_Choice": input("請用空格隔開: ").split()}
+def get_stock_lists(session, user_input: str):
+    try:
+        if user_input == "1":  # 查詢 ETF 成分股
+            sub_user_input = input("1. 0050, 006201, 0051\n2. 自行輸入\n輸入: ")
+            stock_lists = {}
+            etf_list = None
+            if sub_user_input == "1":
+                etf_list = ["0050", "006201", "0051"]
+            elif sub_user_input == "2":
+                etf_list = input("請用空格隔開: ").strip().split()
+            else:
+                print("無效的子選項")
+                return None
+            for etf in etf_list:
+                stock_lists[etf] = fetch_etf_constituents(session, etf)
+            return stock_lists
 
-    # 3.三大法人買賣超
-    elif user_input == "3":
-        return {" Institutional_Investors": fetch_institutional_top50()}
+        elif user_input == "2":  # 查詢個股
+            stocks = input("請用空格隔開: ").strip().split()
+            if not stocks:
+                logger.error("未提供股票代碼")
+                return None
+            return {"User_Choice": stocks}
 
-    # 4. 退出
-    elif user_input == "4":
+        elif user_input == "3":  # 三大法人買賣超
+            return {"Institutional_Investors": fetch_institutional_top50(session)}
+
+        elif user_input == "4":  # 退出
+            raise KeyboardInterrupt
+
+        else:
+            logger.error("無效的輸入選項")
+            return None
+    except Exception as e:
+        logger.error(f"獲取股票列表失敗：{e}")
         return None
 
-if __name__ == "__main__":
-    new_result = Path("results")
-    eps_lists = None  # set your EST eps in here
-    
-    token = load_token()
-    db = Finminder(token)
 
-    # create folder
-    new_result.mkdir(parents=True, exist_ok=True)
-
-    # Read the caculate Parameter
+async def main():
+    tokens = load_token()
     params = parse_arguments()
+    new_result = Path("results")
+    new_result.mkdir(parents=True, exist_ok=True)
+    eps_lists = None  # 可根據需求設置預測 EPS
 
     while True:
-        os.system("cls")
-        user_input = input(
-            "1. 查詢ETF成分股 \n2. 查詢個股 \n3. 三大法人買賣超 \n4. 退出 \n輸入: "
-        )
-        stock_lists = get_stock_lists(user_input)
-        print(stock_lists)
+        try:
+            # 跨平台清屏
+            print("\033[H\033[J", end="")
+            user_input = input(
+                "1. 查詢 ETF 成分股\n2. 查詢個股\n3. 三大法人買賣超\n4. 退出\n輸入: "
+            )
+            async with aiohttp.ClientSession() as session:
+                stock_lists = get_stock_lists(session, user_input)
+                if not stock_lists:
+                    break
 
-        if not stock_lists:
+                print(f"股票列表: {stock_lists}")
+                for title, stock_list in stock_lists.items():
+                    print(f"處理 {title}: {stock_list}")
+                    try:
+                        stock_data = await calculator(session, stock_list, params, tokens)
+                        result_output(new_result / Path(title), stock_data, eps_lists)
+                    except Exception as e:
+                        logger.error(f"處理 {title} 失敗：{e}")
+
+            input("按 Enter 繼續...")
+        except KeyboardInterrupt:
+            print("用戶終止程式")
             break
+        except Exception as e:
+            logger.error(f"主循環錯誤：{e}")
+            input("發生錯誤，請重試...")
+        finally:
+            logging.shutdown()
 
-        for title, stock_list in stock_lists.items():
-            print(title, stock_list)
 
-            # Get Data
-            StockDatas = calculator(db, stock_list, params)
-            result_output(new_result / Path(title), StockDatas, eps_lists)
-        print("Enter to continue...")
-        input()
-        logging.shutdown()
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -1,7 +1,7 @@
 import csv
 import yaml
 import logging
-import requests
+import asyncio
 import aiohttp
 from pathlib import Path
 from bs4 import BeautifulSoup
@@ -84,8 +84,14 @@ async def fetch_web2json(session, url: str, headers=DEFAULT_HEADERS, timeout=20)
 
 
 def load_token(path="token.yaml"):
-    with open(path, "r") as f:
-        return yaml.safe_load(f) or {}
+    try:
+        with open(path, mode="r", encoding="utf-8") as f:
+            content = f.read()
+            return yaml.safe_load(content) or {}
+    except (IOError, yaml.YAMLError) as e:
+        logger.error(f"Failed to load token from {path}: {e}")
+        return {}
+
 
 def dict2list(data):
     result = []
@@ -106,35 +112,48 @@ def dict2list(data):
 def is_ordinary_stock(stock_id):
     return stock_id[0] in "12345678"
 
-def get_profit(target_Price, price):
-    return float(target_Price / price - 1) * 100
+
+def get_profit(target_price, price):
+    try:
+        return float(float(target_price) / float(price)-1) * 100
+    except (ZeroDivisionError, TypeError, ValueError) as e:
+        logger.error(
+            f"Invalid input for get_profit: target_price={target_price}, price={price}, error={e}"
+        )
+        return None
+
 
 def get_target(rate, data):
     return rate * data
 
 
-def get_last_data(result_dir: Path) -> dict:
-    datas = {}
-    files_processed = 0
-    for filepath in result_dir.rglob("*.csv"):
-        try:
+async def load_data(result_dir: Path) -> dict:
+    catchs = {}
+    async def __load_data(filepath):
+        catch = {}
+        try: 
             with filepath.open(mode="r", newline="", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    stock_id = row.get("代號")
-                    if stock_id and stock_id not in datas:  # Keep the most recent entry
-                        converted_row = {}
-                        for key, value in row.items():
-                            try:
-                                converted_row[key] = float(value)
-                            except (ValueError, TypeError):
-                                converted_row[key] = value
-                        datas[stock_id] = converted_row
-            files_processed += 1
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        stock_id = row.get("代號")
+                        if stock_id and stock_id not in catch:  # Keep the most recent entry
+                            converted_row = {}
+                            for key, value in row.items():
+                                try:
+                                    converted_row[key] = float(value)
+                                except (ValueError, TypeError):
+                                    converted_row[key] = value
+                            catch[stock_id] = converted_row
             logger.debug(f"Processed CSV file: {filepath}")
-        except (IOError, csv.Error) as e:
-            logger.warning(f"Failed to read CSV file {filepath}: {e}")
-            continue
+            return catch
+        except:
+            logger.warning(f"Failed to read CSV file {filepath}")
 
-    logger.info(f"Aggregated data for {len(datas)} stocks from {files_processed} files")
-    return datas
+    tasks = [__load_data(filepath) for filepath in result_dir.rglob("*.csv")]
+    list_catchs = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for d in list_catchs:
+        catchs.update(d)
+
+    logger.info(f"Aggregated data for {len(catchs)} stocks from {len(list_catchs)} files")
+    return catchs

@@ -1,22 +1,18 @@
 import re
 import os
 import sys
-import logging
 import aiohttp
 import asyncio
 from natsort import natsorted
 
 sys.path.append(os.path.dirname(__file__) + "/..")
 
-from utils.utils import fetch_webpage, is_ordinary_stock
+from utils.utils import logger, fetch_webpage, is_ordinary_stock
+
 
 ETF_BASE_URL = "https://www.moneydj.com/ETF/X/Basic/Basic0007B.xdjhtm?etfid={}.TW"
 INVESTOR_URL = "https://histock.tw/stock/three.aspx?s={}"
 INVESTOR_TYPES = {"foreign": "a", "investment_trust": "b", "dealers": "c"}
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 
 async def fetch_etf_constituents(session, etf_id: str) -> list[str]:
     try:

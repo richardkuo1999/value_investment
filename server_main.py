@@ -1,8 +1,8 @@
 import os
 import sys
+import logging
 import threading
 from pathlib import Path
-import logging
 
 
 sys.path.append(os.path.dirname(__file__))
@@ -12,9 +12,8 @@ from Database.Finmind import Finminder
 from calculator.calculator import calculator
 from calculator.Index import notify_macro_indicators
 from calculator.stock_select import fetch_etf_constituents, fetch_institutional_top50
-from utils.utils import load_token, get_profit, get_target, get_last_data
+from utils.utils import logger, load_token, get_profit, get_target, load_data
 
-logger = logging.getLogger(__name__)
 
 daily_run_lock = threading.Lock()
 
@@ -52,6 +51,8 @@ def individual_search(stock_lists, EPS_lists, params):
 
     stock_datas = calculator(db, stock_lists, params, get_catch())
     stock_texts = result_output(result_path / Path("Individual"), stock_datas, EPS_lists)
+
+    logging.shutdown()
 
     return stock_datas, stock_texts
 
@@ -106,7 +107,7 @@ def main_run(run_lists, DAILY_RUN_LISTS):
     catch = get_catch()
 
     stock_groups = {}
-   
+
     for file in result_path.rglob("*"):
         if file.is_file() and file.stem in run_lists:
             file.rename(backup_path / file.name)
@@ -163,11 +164,12 @@ def daily_run(DAILY_RUN_LISTS, IP_ADDR):
             logger.error(f"Daily run error: {e}")
             telegram_print(f"Daily run error: {e}")
         finally:
-            daily_run_lock.release()
             telegram_print(
                 f"Download link:\nCSV: http://{IP_ADDR}:8000/download/csv\n" \
                 f"TXT: http://{IP_ADDR}:8000/download/txt"
             )
+            daily_run_lock.release()
+            logging.shutdown()
 
 def force_run(run_lists, DAILY_RUN_LISTS, IP_ADDR):
     if daily_run_lock.acquire(blocking=False):
@@ -177,11 +179,12 @@ def force_run(run_lists, DAILY_RUN_LISTS, IP_ADDR):
             logger.error(f"Force run error: {e}")
             telegram_print(f"Force run error: {e}")
         finally:
-            daily_run_lock.release()
             telegram_print(
                 f"Download link:\nCSV: http://{IP_ADDR}:8000/download/csv\n" \
                 f"TXT: http://{IP_ADDR}:8000/download/txt"
             )
+            daily_run_lock.release()
+            logging.shutdown()
 
 if __name__ == "__main__":
     pass

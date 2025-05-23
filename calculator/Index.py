@@ -1,6 +1,5 @@
 import os
 import sys
-import logging
 import asyncio
 import aiohttp
 from datetime import datetime, timedelta
@@ -9,13 +8,10 @@ sys.path.append(os.path.dirname(__file__) + "/..")
 
 from Database.Finmind import Finminder
 from utils.output import telegram_print
-from utils.utils import fetch_web2json
+from utils.utils import logger, fetch_web2json
+
 
 CNN_FEAR_GRED_URL = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/{}"
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 
 async def cnn_fear_greed_index(session) -> str:
     start_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")

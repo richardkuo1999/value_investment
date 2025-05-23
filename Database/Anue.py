@@ -1,16 +1,13 @@
 import os
 import sys
-import logging
 import aiohttp
 import asyncio
 from datetime import datetime
 from urllib.parse import unquote
 
 sys.path.append(os.path.dirname(__file__) + "/..")
-from utils.utils import fetch_webpage
+from utils.utils import logger, fetch_webpage
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 GOOGLE_SEARCH_BASE_URL = "https://www.google.com/search?q={}&num={}"
 YAHOO_SEARCH_BASE_URL = "https://tw.search.yahoo.com/search?p={}&fr=yfp-search-sb"

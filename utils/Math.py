@@ -1,11 +1,14 @@
-import logging
+import os
+import sys
 import statistics
 import numpy as np
 from enum import Enum
 from sklearn.linear_model import LinearRegression
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+sys.path.append(os.path.dirname(__file__) + "/..")
+
+from utils.utils import logger
+
 
 class Math(Enum):
     PROB_WEIGHTS = [0.001, 0.021, 0.136, 0.341, 0.341, 0.136, 0.021, 0.001]

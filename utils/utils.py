@@ -13,8 +13,6 @@ from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_t
 # from googleapiclient.http import MediaFileUpload
 # from googleapiclient.errors import HttpError
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36",
@@ -22,6 +20,22 @@ DEFAULT_HEADERS = {
     "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
 }
 
+
+def logger_create(file_name):
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(name)s:%(funcName)s:%(lineno)d - %(message)s",
+    )
+    logger = logging.getLogger(__name__)
+    file_handler = logging.FileHandler("syslog.log")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s",)
+    )
+    logger.addHandler(file_handler)
+    return logger
+
+logger = logger_create(__name__)
 
 @retry(
     stop=stop_after_attempt(3),

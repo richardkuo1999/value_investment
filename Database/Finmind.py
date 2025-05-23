@@ -1,17 +1,12 @@
 import os
 import sys
 import asyncio
-import logging
 import aiohttp
 import pandas as pd
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 sys.path.append(os.path.dirname(__file__) + "/..")
-from utils.utils import load_token
-
-# 設置日誌
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+from utils.utils import logger, load_token
 
 FETCH_URL = "https://api.finmindtrade.com/api/v4/data"
 USELIMIT_URL = "https://api.web.finmindtrade.com/v2/user_info"

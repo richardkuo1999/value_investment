@@ -2,13 +2,10 @@ import os
 import sys
 import aiohttp
 import asyncio
-import logging
 
 sys.path.append(os.path.dirname(__file__) + "/..")
-from utils.utils import fetch_webpage
+from utils.utils import logger, fetch_webpage
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 GOODINFO_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36",

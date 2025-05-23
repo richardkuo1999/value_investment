@@ -1,6 +1,7 @@
 import os
 import sys
-import yaml
+import logging
+import argparse
 from pathlib import Path
 import argparse
 
@@ -8,10 +9,11 @@ from Database.Finmind import Finminder
 
 sys.path.append(os.path.dirname(__file__))
 
-from utils.utils import load_token
+from utils.utils import logger, load_token
 from utils.output import result_output
 from calculator.calculator import calculator
 from calculator.stock_select import fetch_etf_constituents, fetch_institutional_top50
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Stock analysis program")
@@ -89,3 +91,4 @@ if __name__ == "__main__":
             result_output(new_result / Path(title), StockDatas, eps_lists)
         print("Enter to continue...")
         input()
+        logging.shutdown()

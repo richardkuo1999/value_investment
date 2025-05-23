@@ -13,7 +13,8 @@ ROW_TITLE = [
     "資訊",
     "交易所",
     "價格",
-    # =========== 6
+    "毛利率",
+    # =========== 7
     "EPS(TTM)",
     "BPS",
     "PE(TTM)",
@@ -96,36 +97,37 @@ def txt_output(result_path, stock_datas, eps_lists=None):
             logger.warning(f"Skipping empty stock data for {stock_id}")
             continue
 
-        close_price = float(stock_data.get("價格", 0.0))
+        close_price = float(stock_data.get("價格"))
         if not close_price:
             logger.warning(f"Missing or invalid price for {stock_id}")
             continue
 
         # Select EPS
+        eps_ttm = float(stock_data.get('EPS(TTM)'))
         eps = None
         if eps_lists and idx < len(eps_lists) and eps_lists[idx] is not None:
             eps = float(eps_lists[idx])
         else:
-            eps_est = stock_data.get("Anue", {}).get("EPS(EST)", None)
-            eps = float(eps_est) if eps_est else float(stock_data.get("EPS(TTM)", 0.0))
-        bps = float(stock_data.get("BPS", 0.0))
+            eps_est = stock_data.get("EPS(EST)")
+            eps = float(eps_est) if eps_est else eps_ttm
+        bps = float(stock_data.get("BPS"))
 
         text = ""
 # Stock Overview
         text += f"""
 ============================================================================
 
-股票名稱: {stock_data.get('名稱', 'N/A')}		股票代號: {stock_data.get('代號', 'N/A')}                    
-公司產業: {stock_data.get('產業', 'N/A')}		交易所: {stock_data.get('交易所', 'N/A')}
-公司資訊: {stock_data.get('資訊', 'N/A')}
+股票名稱: {stock_data.get('名稱')}		股票代號: {stock_data.get('代號')}                    
+公司產業: {stock_data.get('產業')}		交易所: {stock_data.get('交易所')}
+公司資訊: {stock_data.get('資訊')}
 
-目前股價: {close_price:>10.2f}
-EPS(TTM): {stock_data.get('EPS(TTM)', 0.0):>10.2f}          BPS: {bps:>10.2f}
-PE(TTM): {stock_data.get('PE(TTM)', 0.0):>10.2f}          PB(TTM): {stock_data.get('PB(TTM)', 0.0):>10.2f}
+目前股價: {close_price:>10.2f}		毛利率: {stock_data.get('毛利率')}
+EPS(TTM): {eps_ttm:>10.2f}          BPS: {bps:>10.2f}
+PE(TTM): {stock_data.get('PE(TTM)'):>10.2f}          PB(TTM): {stock_data.get('PB(TTM)'):>10.2f}
 """
 
 # Yahoo Finance Target
-        target_price = stock_data.get("Yahoo_1yTargetEst", 0.0)
+        target_price = stock_data.get("Yahoo_1yTargetEst")
         if target_price:
             profit = get_profit(target_price, close_price)
             text += f"""
@@ -141,7 +143,7 @@ Yahoo Finance 1y Target Est....
         try:
             prob = [stock_data[key] for key in ["往上機率", "區間震盪機率", "往下機率"]]
             expect = [stock_data[key] for key in ["保守做多期望值", "樂觀做多期望值", "樂觀做空期望值"]]
-            tl_price = float(stock_data.get("TL價", 0.0))
+            tl_price = float(stock_data.get("TL價"))
             profit = get_profit(tl_price, close_price)
             expect_profit_rate = [e / close_price * 100 if close_price else 0.0 for e in expect]
             text += f"""
@@ -185,10 +187,10 @@ Yahoo Finance 1y Target Est....
             logger.warning(f"{stock_id}: Missing Five-Line Spectrum data: {e}")
 
 # FactSet Estimates
-        if stock_data.get("EPS(EST)", None):
-            eps_est = float(stock_data.get("EPS(EST)", 0.0))
+        if stock_data.get("EPS(EST)"):
+            eps_est = float(stock_data.get("EPS(EST)"))
             if eps_est:
-                target_price = float(stock_data.get("Factest目標價", 0.0))
+                target_price = float(stock_data.get("Factest目標價"))
                 profit = get_profit(target_price, close_price)
                 text += f"""
 ============================================================================

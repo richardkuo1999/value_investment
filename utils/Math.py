@@ -60,15 +60,8 @@ class Math(Enum):
         return percentiles + [mean]
 
     @staticmethod
-    def mean_reversion(datas):
-        if len(datas) != 2:
-            raise ValueError("Input datas must be a tuple of (any, list of prices)")
-        _, prices = datas
-        if not prices:
-            raise ValueError("Price data cannot be empty")
-        try:
-            prices = np.array(prices, dtype=float)
-        except ValueError:
+    def mean_reversion(prices):
+        if not isinstance(prices, np.ndarray):
             raise ValueError("Price data must contain only numeric values")
 
         # Fit linear regression

@@ -2,11 +2,14 @@ import os
 import sys
 import aiohttp
 import asyncio
-import logging
 import yfinance as yf
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+sys.path.append(os.path.dirname(__file__) + "/..")
+
+from utils.utils import logger_create
+
+logger = logger_create(__name__)
+
 
 class YahooFinance:
     SUPPORTED_MARKETS = ["TW", "TWO"]

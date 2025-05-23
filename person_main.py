@@ -8,10 +8,12 @@ from Database.Finmind import Finminder
 
 sys.path.append(os.path.dirname(__file__))
 
-from utils.utils import load_token
+from utils.utils import logger_create, load_token
 from utils.output import result_output
 from calculator.calculator import calculator
 from calculator.stock_select import fetch_etf_constituents, fetch_institutional_top50
+
+logger = logger_create(__name__)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Stock analysis program")

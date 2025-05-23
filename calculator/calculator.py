@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-import logging
 from datetime import datetime, timedelta
 
 sys.path.append(os.path.dirname(__file__) + "/..")
@@ -11,8 +10,9 @@ from Database.YahooFinance import YahooFinance
 from Database.Anue import ANUE
 from utils.Math import Math
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from utils.utils import logger_create
+
+logger = logger_create(__name__)
 
 QUARTILE_TITLES = ["25%", "50%", "75%", "平均"]
 MEAN_REVERSION_TITLES = {

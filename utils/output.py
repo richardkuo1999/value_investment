@@ -1,13 +1,11 @@
 import csv
-import logging
 import requests
 from pathlib import Path
 from django.http import HttpResponse
 
-from utils.utils import dict2list, get_profit, get_target, load_token
+from utils.utils import logger_create, dict2list, get_profit, get_target, load_token
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logger_create(__name__)
 
 ROW_TITLE = [
     "名稱",

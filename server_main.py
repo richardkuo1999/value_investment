@@ -2,7 +2,6 @@ import os
 import sys
 import threading
 from pathlib import Path
-import logging
 
 
 sys.path.append(os.path.dirname(__file__))
@@ -12,9 +11,9 @@ from Database.Finmind import Finminder
 from calculator.calculator import calculator
 from calculator.Index import notify_macro_indicators
 from calculator.stock_select import fetch_etf_constituents, fetch_institutional_top50
-from utils.utils import load_token, get_profit, get_target, get_last_data
+from utils.utils import logger_create, load_token, get_profit, get_target, load_data
 
-logger = logging.getLogger(__name__)
+logger = logger_create(__name__)
 
 daily_run_lock = threading.Lock()
 

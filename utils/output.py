@@ -19,15 +19,16 @@ ROW_TITLE = [
     "BPS",
     "PE(TTM)",
     "PB(TTM)",
-    # =========== 10
-    "Yahoo_1yTargetEst",
     # =========== 11
+    "yahooforwardEps",
+    "Yahoo_1yTargetEst",
+    # =========== 13
     "EPS(EST)",
     "PE(EST)",
     "Factest目標價",
     "資料時間",
     "ANUEurl",
-    # =========== 16
+    # =========== 18
     "往上機率",
     "區間震盪機率",
     "往下機率",
@@ -35,7 +36,7 @@ ROW_TITLE = [
     "保守做多期望值",
     "樂觀做多期望值",
     "樂觀做空期望值",
-    # =========== 23
+    # =========== 25
     "超極樂觀",
     "極樂觀",
     "樂觀",
@@ -104,12 +105,12 @@ def txt_output(result_path, stock_datas, eps_lists=None):
 
         # Select EPS
         eps_ttm = float(stock_data.get('EPS(TTM)'))
-        eps = None
+        eps_use = None
         if eps_lists and idx < len(eps_lists) and eps_lists[idx] is not None:
-            eps = float(eps_lists[idx])
+            eps_use = float(eps_lists[idx])
         else:
-            eps_est = stock_data.get("EPS(EST)")
-            eps = float(eps_est) if eps_est else eps_ttm
+            eps_est = stock_data.get("EPS(EST)") or stock_data.get("yahooforwardEps")
+            eps_use = float(eps_est) if eps_est else eps_ttm
         bps = float(stock_data.get("BPS"))
 
         text = ""
@@ -128,12 +129,14 @@ PE(TTM): {stock_data.get('PE(TTM)'):>10.2f}          PB(TTM): {stock_data.get('P
 
 # Yahoo Finance Target
         target_price = stock_data.get("Yahoo_1yTargetEst")
+        forwardEps = stock_data.get("yahooforwardEps")
         if target_price:
             profit = get_profit(target_price, close_price)
             text += f"""
 ============================================================================
 Yahoo Finance 1y Target Est....
 
+預估eps: {forwardEps}
 目標價位: {target_price:>10.2f}          潛在漲幅: {profit:>10.2f}%
 """
         else:
@@ -207,14 +210,14 @@ url: {stock_data["ANUEurl"]}
         text += f"""
 ****************************************************************************
 *                           以下資料使用的EPS, BPS                         *
-*                        EPS: {eps:>10.2f} BPS: {bps:>10.2f}                   *    
+*                        EPS: {eps_use:>10.2f} BPS: {bps:>10.2f}                   *    
 ****************************************************************************
 """
 
 # PE Quartiles
         try:
             pe_rates = [stock_data[key] for key in ["PE(25%)", "PE(50%)", "PE(75%)", "PE(平均)"]]
-            pe_target_prices = [get_target(rate, eps) for rate in pe_rates]
+            pe_target_prices = [get_target(rate, eps_use) for rate in pe_rates]
             pe_profits = [get_profit(tp, close_price) for tp in pe_target_prices]
             text += f"""
 ============================================================================
@@ -231,7 +234,7 @@ PE平均% : {pe_rates[3]:>10.2f}          目標價位: {pe_target_prices[3]:>10
 # PE Standard Deviation
         try:
             pe_sd_rates = [stock_data[key] for key in ["PE(TL+3SD)", "PE(TL+2SD)", "PE(TL+1SD)", "PE(TL)", "PE(TL-1SD)", "PE(TL-2SD)", "PE(TL-3SD)"]]
-            pe_sd_target_prices = [get_target(rate, eps) for rate in pe_sd_rates]
+            pe_sd_target_prices = [get_target(rate, eps_use) for rate in pe_sd_rates]
             pe_sd_profits = [get_profit(tp, close_price) for tp in pe_sd_target_prices]
             text += f"""
 ============================================================================
@@ -287,14 +290,13 @@ PB TL-3SD : {pb_sd_rates[6]:>10.2f}           目標價位: {pb_sd_target_prices
 
 # PEG Valuation
         peg = stock_data.get("PEG", None)
-        peg = None if peg == "N/A" else float(peg)
-        if peg or eps != float(stock_data.get("EPS(TTM)", 0.0)):
-            if eps != float(stock_data.get("EPS(TTM)", 0.0)):
-                eps_growth = (eps / float(stock_data.get("EPS(TTM)", 0.0)) - 1) * 100
-                peg = float(stock_data.get("PE(TTM)", 0.0)) / eps_growth
-                target_price = get_target(eps_growth, float(stock_data.get("EPS(TTM)", 0.0)))
+        if peg:
+            if not peg and eps_use != eps_ttm:
+                eps_growth = (eps_use / eps_ttm - 1) * 100
+                peg = eps_ttm / eps_growth
+                target_price = get_target(eps_growth, eps_ttm)
             else:
-                eps_growth = get_target(1 / peg, float(stock_data.get("EPS(TTM)", 0.0)))
+                eps_growth = get_target(1 / peg, eps_ttm)
                 target_price = close_price / peg
             profit = get_profit(target_price, close_price)
             text += f"""
@@ -344,7 +346,7 @@ def telegram_print(msg, token_path="token.yaml"):
         # response = requests.get(url, timeout=10)
         # response.raise_for_status()
 
-        logger.info(msg)
+        logger.debug(msg)
         return True
     except (requests.RequestException, KeyError) as e:
         logger.error(f"Telegram 發送失敗: {e}")

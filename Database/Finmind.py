@@ -107,6 +107,7 @@ class Finminder:
             if result.empty:
                 logger.warning(f"No stock info found for {tag1}={stock_id}")
                 return None
+            result = result.sort_values(by='date', ascending=False)
             return result.iloc[0][tag2]
         except Exception as e:
             logger.error(f"Failed to retrieve stock info for {tag1}={stock_id}, tag2={tag2}: {e}")
